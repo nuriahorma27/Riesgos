@@ -1,0 +1,2325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RiskEval — JBCM</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0F1F3D;--navy2:#1A3260;--blue:#1B4FBF;--blue2:#2E6BE6;
+  --ice:#E8EFFC;--ice2:#C8D8F8;--bg:#F4F6FB;--white:#fff;
+  --text:#0F1F3D;--muted:#5A6B8A;--border:#D0DCEE;
+  --green:#0E7A5A;--gbg:#D4F5E9;--amber:#C47A00;--abg:#FFF3CD;
+  --red:#C0392B;--rbg:#FDECEA;
+  --sh:0 2px 12px rgba(15,31,61,.09);--shl:0 8px 32px rgba(15,31,61,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
+
+/* HEADER */
+.hdr{background:var(--navy);position:sticky;top:0;z-index:200;box-shadow:0 2px 20px rgba(0,0,0,.28)}
+.hdr-in{max-width:1600px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:0 24px;height:50px}
+.logo{font-family:'DM Serif Display',serif;font-size:18px;color:#fff;white-space:nowrap;flex-shrink:0}
+.logo em{color:var(--ice2);font-style:italic}
+.btn-import{padding:5px 13px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:11.5px;
+  font-weight:600;cursor:pointer;border:1.5px solid rgba(255,255,255,.35);
+  background:rgba(255,255,255,.12);color:#fff;transition:all .18s;white-space:nowrap;flex-shrink:0}
+.btn-import:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.6)}
+.btn-import.loaded{background:rgba(14,122,90,.35);border-color:#0E7A5A}
+.nav{display:flex;gap:2px;flex:1;justify-content:center;overflow-x:auto}
+.nb{display:flex;align-items:center;gap:4px;padding:5px 11px;border-radius:5px;cursor:pointer;
+  color:rgba(255,255,255,.45);font-size:11.5px;font-weight:500;white-space:nowrap;border:none;background:none;
+  transition:all .18s}
+.nb:hover{color:rgba(255,255,255,.8);background:rgba(255,255,255,.07)}
+.nb.active{color:#fff;background:rgba(255,255,255,.14)}
+.nb .dot{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:8px;font-weight:700;background:rgba(255,255,255,.13);flex-shrink:0}
+.nb.active .dot{background:var(--blue2)}
+.exp-wrap{position:relative;flex-shrink:0}
+.btn-export{padding:5px 13px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:11.5px;
+  font-weight:600;cursor:pointer;border:none;background:var(--blue2);color:#fff;
+  transition:all .18s;white-space:nowrap}
+.btn-export:hover{background:#3d7ff0}
+.exp-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;
+  background:#fff;border:1px solid var(--border);border-radius:8px;
+  box-shadow:var(--shl);min-width:220px;z-index:300;overflow:hidden}
+.exp-item{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;transition:background .15s}
+.exp-item:hover{background:var(--ice)}
+.exp-item .ei-title{font-weight:600;font-size:12px;color:var(--navy)}
+.exp-item .ei-sub{font-size:10.5px;color:var(--muted)}
+.exp-pend{cursor:default;opacity:.65}.exp-pend:hover{background:transparent}
+.exp-sep{height:1px;background:var(--border);margin:0 12px}
+.pend-badge{font-size:9px;background:var(--abg);color:var(--amber);padding:2px 6px;
+  border-radius:10px;font-weight:600;margin-left:auto;white-space:nowrap}
+
+/* TOAST */
+.toast{display:none;position:fixed;bottom:22px;right:22px;z-index:500;
+  background:var(--navy);color:#fff;border-radius:9px;padding:11px 16px;
+  font-size:12px;box-shadow:var(--shl);max-width:360px}
+
+/* MAIN */
+.main{max-width:1600px;margin:0 auto;padding:22px 24px 60px}
+.page{display:none}.page.active{display:block}
+
+/* CARDS */
+.card{background:#fff;border-radius:10px;border:1px solid var(--border);
+  box-shadow:var(--sh);overflow:hidden;margin-bottom:16px}
+.card-hd{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff}
+.card-hd-lt{background:var(--bg);color:var(--navy);border-bottom:1px solid var(--border)}
+.ct{font-family:'DM Serif Display',serif;font-size:14px}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;
+  font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+.bw{background:rgba(255,255,255,.15);color:#fff}
+.bg{background:var(--gbg);color:var(--green)}
+.ba{background:var(--abg);color:var(--amber)}
+.br{background:var(--rbg);color:var(--red)}
+
+/* PILLS */
+.pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;
+  font-size:11px;font-weight:600;white-space:nowrap}
+.pv{background:var(--gbg);color:var(--green)}
+.pa{background:var(--abg);color:var(--amber)}
+.pr{background:var(--rbg);color:var(--red)}
+.pb{background:var(--ice);color:var(--blue)}
+.pg{background:#f0f0f0;color:#666}
+.dot2{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dv2{background:var(--green)}.da2{background:var(--amber)}.dr2{background:var(--red)}
+
+/* TABLES */
+.tscroll{overflow-x:auto;max-height:560px;overflow-y:auto}
+table.rt{width:100%;border-collapse:collapse;font-size:12px}
+table.rt th{background:var(--navy);color:rgba(255,255,255,.82);padding:8px 10px;text-align:left;
+  font-weight:500;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;
+  border-right:1px solid rgba(255,255,255,.07);position:sticky;top:0;z-index:5}
+table.rt th:last-child{border-right:none}
+table.rt td{padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid #eef2f9;vertical-align:middle}
+table.rt td:last-child{border-right:none}
+table.rt tr:last-child td{border-bottom:none}
+table.rt tr:hover td{background:var(--ice)}
+
+/* SCORE */
+.sc{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:21px;
+  padding:0 5px;border-radius:4px;font-weight:700;font-size:12px;background:var(--ice);color:var(--navy)}
+.sc-h{background:var(--rbg);color:var(--red)}
+.sc-m{background:var(--abg);color:var(--amber)}
+.sc-l{background:var(--gbg);color:var(--green)}
+
+/* SELECTS */
+select{border:1px solid var(--border);border-radius:5px;padding:4px 6px;
+  font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text);background:#fff;
+  cursor:pointer;width:auto;min-width:70px}
+select:focus{outline:none;border-color:var(--blue2)}
+input[type=text]{border:1px solid var(--border);border-radius:5px;padding:4px 7px;
+  font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text);background:#fff;width:100%}
+input[type=text]:focus{outline:none;border-color:var(--blue2)}
+
+/* BUTTONS */
+.btn{padding:6px 14px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;
+  font-weight:500;cursor:pointer;border:none;transition:all .18s;display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:var(--blue2)}
+.btn-s{background:var(--ice);color:var(--navy);border:1px solid var(--border)}.btn-s:hover{background:var(--ice2)}
+.btn-d{background:var(--rbg);color:var(--red)}.btn-d:hover{background:#fad0ce}
+.btn-sm{padding:4px 10px;font-size:11.5px}
+.btn-xs{padding:3px 8px;font-size:11px}
+
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+
+/* EDITABLE TABLE */
+.rt td input[type=text], .rt td textarea {
+  border:1px solid transparent;border-radius:4px;padding:3px 6px;
+  font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text);
+  background:transparent;width:100%;transition:border .15s;resize:none;
+}
+.rt td input[type=text]:hover, .rt td textarea:hover { border-color:var(--border); background:#fff; }
+.rt td input[type=text]:focus, .rt td textarea:focus { border-color:var(--blue2); background:#fff; outline:none; }
+.rt td select { font-size:11px; }
+.rt th[style*="1a3260"] { background:#1a3260 !important; font-style:italic; opacity:.9; }
+.rt td.calc { background:#F7F9FF; }
+
+/* STAT compact */
+.stat { background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:var(--sh) }
+.stat .lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.stat .val{font-family:'DM Serif Display',serif;font-size:28px;color:var(--navy);letter-spacing:-1px}
+.stat .sub{font-size:10.5px;color:var(--muted);margin-top:2px}
+
+/* ALERTS */
+.alert{padding:10px 14px;border-radius:7px;font-size:12px;margin-bottom:14px;
+  display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.alert-i{background:var(--ice);color:var(--blue);border-left:3px solid var(--blue)}
+.alert-w{background:var(--abg);color:var(--amber);border-left:3px solid var(--amber)}
+
+/* PBAR */
+.pbar{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}
+.pt{font-family:'DM Serif Display',serif;font-size:22px;color:var(--navy);letter-spacing:-.4px}
+.ps{font-size:12px;color:var(--muted);margin-top:2px}
+.pact{display:flex;gap:8px;flex-shrink:0;align-items:center}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(15,31,61,.55);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.mo-box{background:#fff;border-radius:12px;box-shadow:var(--shl);width:100%;max-width:620px;max-height:92vh;overflow-y:auto}
+.mo-hd{padding:15px 20px 13px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.mo-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--navy)}
+.mo-x{cursor:pointer;font-size:20px;color:var(--muted);background:none;border:none;line-height:1}
+.mo-body{padding:16px 20px}
+.mo-ft{padding:13px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.fl{font-size:11.5px;font-weight:600;color:var(--navy);margin-bottom:4px;display:block}
+.fr{margin-bottom:11px}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty .ei{font-size:38px;margin-bottom:10px}
+.empty h3{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:6px}
+.empty p{font-size:12.5px}
+.empty .ebtn{margin-top:16px}
+
+/* UMBRAL MATRICES */
+.hmc{border-radius:4px;padding:7px 5px;text-align:center;min-height:40px;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;
+  transition:transform .12s}
+.hmc:hover{transform:scale(1.05)}
+.hm-hd{background:var(--navy);color:rgba(255,255,255,.72);font-weight:500}
+.hm-lb{background:var(--bg);color:var(--muted);font-weight:500}
+.hm-g{background:#B7E4C7;color:#155724}
+.hm-a{background:#FFE08A;color:#7A5100}
+.hm-r{background:#FFBCBC;color:#7A1515}
+.hm-fs{font-weight:700;font-size:12.5px}
+.hm-ct{font-size:9px;opacity:.7}
+
+/* ADJ MARK */
+.adj{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--amber);font-weight:600}
+
+/* TABS (within page) */
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab{padding:7px 15px;font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer;
+  border-radius:5px 5px 0 0;transition:all .15s;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab:hover{color:var(--navy);background:var(--ice)}
+.tab.active{color:var(--navy);border-bottom-color:var(--blue);background:#fff}
+
+/* Pending banner */
+.pending-banner{
+  background:var(--bg);border:2px dashed var(--border);border-radius:10px;
+  padding:40px;text-align:center;margin:20px 0}
+.pending-banner .pi{font-size:36px;margin-bottom:10px}
+.pending-banner h3{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:6px}
+.pending-banner p{font-size:12.5px;color:var(--muted)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.anim{animation:fadeUp .22s ease both}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+ <div class="hdr-in">
+  <div class="logo">Risk<em>Eval</em></div>
+  <input type="file" id="fi" accept=".xlsx,.xls,.json" style="display:none" onchange="handleFile(event)">
+  <button class="btn-import" id="btnImport" onclick="document.getElementById('fi').click()">📂 Importar Excel</button>
+  <nav class="nav">
+   <button class="nb active" onclick="nav(1)" id="nb1"><span class="dot">1</span>Tabla de datos</button>
+   <button class="nb" onclick="nav(2)" id="nb2"><span class="dot">2</span>Riesgos</button>
+   <button class="nb" onclick="nav(3)" id="nb3"><span class="dot">3</span>Controles</button>
+   <button class="nb" onclick="nav(4)" id="nb4"><span class="dot">4</span>Riesgo Residual</button>
+   <button class="nb" onclick="nav(5)" id="nb5"><span class="dot">5</span>Resultados</button>
+   <button class="nb" onclick="nav(6)" id="nb6"><span class="dot">6</span>Umbrales</button>
+   <button class="nb" onclick="nav(7)" id="nb7"><span class="dot">7</span>Comparativa</button>
+  </nav>
+  <div class="exp-wrap" id="expWrap">
+   <button class="btn-export" onclick="toggleExp()">💾 Exportar ▾</button>
+   <div class="exp-menu" id="expMenu">
+    <div class="exp-item" onclick="exportExcel()">
+     <span style="font-size:18px">📊</span>
+     <div><div class="ei-title">Exportar Excel</div><div class="ei-sub">Formato JBCM con datos actualizados</div></div>
+    </div>
+    <div class="exp-sep"></div>
+    <div class="exp-item exp-pend">
+     <span style="font-size:18px">📄</span>
+     <div><div class="ei-title" style="color:var(--muted)">Exportar Informe</div><div class="ei-sub">En definición</div></div>
+     <span class="pend-badge">Pendiente</span>
+    </div>
+   </div>
+  </div>
+ </div>
+</header>
+
+<div class="toast" id="toast"></div>
+
+<main class="main">
+
+<!-- ══ P1 — TABLA DE DATOS ══ -->
+<div class="page active anim" id="p1">
+ <div class="pbar">
+  <div><div class="pt">Tabla de Datos</div>
+   <div class="ps">Vista completa del Excel importado — una fila por control</div></div>
+ </div>
+ <div id="emptyState1" class="empty">
+  <div class="ei">📂</div>
+  <h3>Sin datos cargados</h3>
+  <p>Importa el Excel JBCM desde el botón superior para ver aquí el inventario completo.</p>
+ </div>
+ <div id="tableSection" style="display:none">
+  <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap" id="statsBar"></div>
+  <div class="card">
+   <div class="card-hd">
+    <div class="ct">Inventario completo</div>
+    <span class="badge bw" id="invCnt">0 filas</span>
+   </div>
+   <div class="tscroll">
+    <table class="rt" id="invTable">
+     <thead><tr>
+      <th>Área</th><th>Proceso</th><th>Subproceso</th><th>Owner</th>
+      <th>Evento de Riesgo</th><th>N2</th><th>KRI</th>
+      <th>Frecuencia</th><th>Fin.</th><th>Reg.</th><th>Rep.</th>
+      <th style="background:#1a3260">Imp.Final</th><th style="background:#1a3260">Score Inh.</th><th style="background:#1a3260">Rating Inh.</th>
+      <th>ID Ctrl.</th><th>Control</th><th>Owner Ctrl.</th>
+      <th>Evidencia</th><th>KCI</th><th>Mitiga</th>
+      <th>Diseño</th><th>Ejecución</th>
+      <th style="background:#1a3260">Score Ctrl.</th><th style="background:#1a3260">Efectividad</th>
+      <th style="background:#1a3260">EC Score</th><th style="background:#1a3260">Entorno</th>
+      <th style="background:#1a3260">Residual</th>
+     </tr></thead>
+     <tbody id="invBody"></tbody>
+    </table>
+   </div>
+  </div>
+ </div>
+</div>
+
+<!-- ══ P2 — RIESGOS ══ -->
+<div class="page anim" id="p2">
+ <div class="pbar">
+  <div><div class="pt">Evaluación Riesgo Inherente</div>
+   <div class="ps">Frecuencia × Impacto Final — reactivo en tiempo real</div></div>
+ </div>
+ <div id="emptyState2" class="empty">
+  <div class="ei">📊</div><h3>Sin datos</h3><p>Importa el Excel primero.</p>
+ </div>
+ <div id="riesgosSection" style="display:none">
+  <div id="statsRiesgos" style="display:flex;gap:12px;margin-bottom:16px;align-items:stretch;flex-wrap:wrap"></div>
+  <div class="alert alert-i">
+   <span>📐</span>
+   <div>Score = <b>Frecuencia × max(Financiero, Regulatorio, Reputacional)</b>. Modifica cualquier selector y recalcula al instante.</div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">Riesgo Inherente por Evento</div><span class="badge bw" id="inhCnt">0</span></div>
+   <div class="tscroll">
+    <table class="rt">
+     <thead><tr>
+      <th>Área</th><th>Proceso</th><th>Subproceso</th><th>Evento de Riesgo</th><th>N2</th>
+      <th>Frec.</th><th>Fin.</th><th>Reg.</th><th>Rep.</th>
+      <th>Imp. Final</th><th>Score</th><th>Rating</th>
+     </tr></thead>
+     <tbody id="inhBody"></tbody>
+    </table>
+   </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+   <div class="card-hd card-hd-lt"><div class="ct" style="color:var(--navy)">Heat Map Frecuencia × Impacto (Inherente)</div></div>
+   <div style="padding:16px" id="hmInh"></div>
+  </div>
+ </div>
+</div>
+
+<!-- ══ P3 — CONTROLES ══ -->
+<div class="page anim" id="p3">
+ <div class="pbar">
+  <div><div class="pt">Evaluación de Controles</div>
+   <div class="ps">Diseño × Ejecución · Efectividad individual · Entorno de control por evento</div></div>
+ </div>
+ <div id="emptyState3" class="empty">
+  <div class="ei">🛡️</div><h3>Sin datos</h3><p>Importa el Excel primero.</p>
+ </div>
+ <div id="controlesSection" style="display:none">
+  <div id="statsControles" style="display:flex;gap:12px;margin-bottom:16px;align-items:stretch;flex-wrap:wrap"></div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">Controles por Evento</div></div>
+   <div class="tscroll">
+    <table class="rt">
+     <thead><tr>
+      <th>Evento de Riesgo</th><th>ID</th><th>Control</th><th>Owner</th>
+      <th>Diseño</th><th>Cuantif.</th><th>Ejecución</th><th>Cuantif.</th>
+      <th>Score</th><th>Efectividad</th><th>Mitiga</th><th>KCI</th>
+     </tr></thead>
+     <tbody id="ctrlBody"></tbody>
+    </table>
+   </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+   <div class="card-hd card-hd-lt"><div class="ct" style="color:var(--navy)">Matriz Diseño × Ejecución — Posición de controles</div></div>
+   <div style="padding:16px" id="hmCtrl"></div>
+  </div>
+ </div>
+</div>
+
+<!-- ══ P4 — RIESGO RESIDUAL ══ -->
+<div class="page anim" id="p4">
+ <div class="pbar">
+  <div><div class="pt">Riesgo Residual</div>
+   <div class="ps">Riesgo Inherente × Entorno de Control → Rating residual · Ajuste experto con justificación</div></div>
+ </div>
+ <div id="emptyState4r" class="empty">
+  <div class="ei">🎯</div><h3>Sin datos</h3><p>Importa el Excel primero.</p>
+ </div>
+ <div id="residualSection" style="display:none">
+  <div id="statsResidual" style="display:flex;gap:12px;margin-bottom:16px;align-items:stretch;flex-wrap:wrap"></div>
+  <div class="card" style="margin-bottom:16px">
+   <div class="card-hd"><div class="ct">Riesgo Residual por Evento</div><span class="badge bw" id="resCnt">0</span></div>
+   <div class="tscroll">
+    <table class="rt">
+     <thead><tr>
+      <th>Área</th><th>Proceso</th><th>Subproceso</th><th>Evento de Riesgo</th><th>N2</th>
+      <th>R.Inherente</th><th>Entorno Control</th>
+      <th>Residual calc.</th><th>Residual final</th><th>Justificación</th>
+     </tr></thead>
+     <tbody id="residualBody"></tbody>
+    </table>
+   </div>
+  </div>
+  <div class="card">
+   <div class="card-hd card-hd-lt"><div class="ct" style="color:var(--navy)">Matriz Riesgo Residual — R.Inherente × Entorno de Control</div></div>
+   <div style="padding:16px" id="hmResidualMatrix"></div>
+  </div>
+ </div>
+</div>
+
+<!-- ══ P5 — RESULTADOS ══ -->
+<div class="page anim" id="p5">
+ <div class="pbar">
+  <div><div class="pt">Resultados</div>
+   <div class="ps">Matrices de Riesgo Inherente y Control · Mapa de Riesgo Residual por Proceso y N2</div></div>
+ </div>
+ <div id="emptyState4" class="empty">
+  <div class="ei">🎯</div><h3>Sin datos</h3><p>Importa el Excel primero.</p>
+ </div>
+ <div id="resultadosSection" style="display:none">
+  <!-- Dos matrices arriba -->
+  <div class="g2" style="margin-bottom:16px;align-items:start">
+   <div class="card">
+    <div class="card-hd card-hd-lt"><div class="ct" style="color:var(--navy)">Riesgo Inherente — Frecuencia × Impacto</div></div>
+    <div style="padding:14px" id="hmResultInh"></div>
+   </div>
+   <div class="card">
+    <div class="card-hd card-hd-lt"><div class="ct" style="color:var(--navy)">Efectividad Control — Diseño × Ejecución</div></div>
+    <div style="padding:14px" id="hmResultCtrl"></div>
+   </div>
+  </div>
+  <!-- Mapa residual grande -->
+  <div class="card">
+   <div class="card-hd"><div class="ct">Mapa de Riesgo Residual — Proceso × N2</div></div>
+   <div style="padding:16px;overflow-x:auto" id="hmRes"></div>
+  </div>
+ </div>
+</div>
+
+<!-- ══ P5 — UMBRALES ══ -->
+<div class="page anim" id="p6">
+ <div class="pbar">
+  <div><div class="pt">Umbrales y Escalas</div>
+   <div class="ps">Parámetros de evaluación · Matrices de resultado</div></div>
+  <div class="pact">
+   <button class="btn btn-p btn-sm" onclick="saveThresholds()">💾 Aplicar umbrales financieros</button>
+  </div>
+ </div>
+
+ <div class="alert alert-w">
+  <span>⚠️</span>
+  <div>Los umbrales financieros son <b>orientativos</b> y deben ajustarse al apetito al riesgo de la entidad. Se evalúa el impacto directo de la materialización del riesgo, no el indirecto.</div>
+ </div>
+
+ <div class="g2" style="align-items:start;margin-bottom:14px">
+  <!-- Parámetros financieros -->
+  <div>
+   <div class="card">
+    <div class="card-hd"><div class="ct">Parámetros Base — Impacto Financiero</div></div>
+    <div style="padding:16px">
+     <div class="alert alert-i" style="margin-bottom:12px;font-size:11.5px">
+      <span>📐</span><div>Margen Bruto × Ratio apetito = Límite de pérdidas → tramos de severidad financiera.</div>
+     </div>
+     <div class="g2">
+      <div class="fr"><label class="fl">Margen Bruto anual (€)</label>
+       <input type="number" id="thMB" value="100000000" step="1000000" oninput="recalcThresholds()" style="width:100%"></div>
+      <div class="fr"><label class="fl">Ratio apetito al riesgo (%)</label>
+       <input type="number" id="thApetito" value="2" step="0.1" min="0.1" oninput="recalcThresholds()" style="width:100%"></div>
+     </div>
+     <div style="background:var(--ice);border-radius:7px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Límite de pérdidas:</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--navy)" id="thLimite">—</div>
+     </div>
+     <table class="rt" style="font-size:11.5px">
+      <thead><tr><th>Val</th><th>Rating</th><th>Umbral (€)</th></tr></thead>
+      <tbody id="thBody"></tbody>
+     </table>
+    </div>
+   </div>
+  </div>
+  <!-- Frecuencia -->
+  <div>
+   <div class="card">
+    <div class="card-hd"><div class="ct">① Frecuencia</div></div>
+    <div class="tscroll"><table class="rt" style="font-size:11.5px">
+     <thead><tr><th>Val</th><th>Rating</th><th>Descripción</th></tr></thead>
+     <tbody>
+      <tr><td><b>5</b></td><td><span class="pill pr">Muy alta</span></td><td>1+ vez al año</td></tr>
+      <tr><td><b>4</b></td><td><span class="pill pr">Alta</span></td><td>1 vez al año</td></tr>
+      <tr><td><b>3</b></td><td><span class="pill pa">Media</span></td><td>1 vez cada 1–5 años</td></tr>
+      <tr><td><b>2</b></td><td><span class="pill pa">Baja</span></td><td>1 vez cada 5–10 años</td></tr>
+      <tr><td><b>1</b></td><td><span class="pill pv">Muy baja</span></td><td>1 vez cada 10+ años</td></tr>
+     </tbody>
+    </table></div>
+   </div>
+   <div class="card">
+    <div class="card-hd card-hd-lt"><div class="ct" style="color:var(--navy)">③ Riesgo Inherente (score)</div></div>
+    <div class="tscroll"><table class="rt" style="font-size:11.5px">
+     <thead><tr><th>Score</th><th>Rating</th></tr></thead>
+     <tbody>
+      <tr><td>15–25</td><td><span class="pill pr">Alto</span> <span style="color:var(--red);font-weight:700">Rojo</span></td></tr>
+      <tr><td>6–14</td><td><span class="pill pa">Medio</span> <span style="color:var(--amber);font-weight:700">Ámbar</span></td></tr>
+      <tr><td>1–5</td><td><span class="pill pv">Bajo</span> <span style="color:var(--green);font-weight:700">Verde</span></td></tr>
+     </tbody>
+    </table></div>
+   </div>
+  </div>
+ </div>
+
+ <!-- 3 impactos -->
+ <div class="g3" style="margin-bottom:14px">
+  <div class="card">
+   <div class="card-hd"><div class="ct">② Impacto Financiero</div><span class="badge bw">Cuantitativo</span></div>
+   <div class="tscroll"><table class="rt" style="font-size:11.5px">
+    <thead><tr><th>Val</th><th>Rating</th><th>Umbral pérdida</th></tr></thead>
+    <tbody id="impScaleBody"></tbody>
+   </table></div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">② Impacto Regulatorio</div><span class="badge bw">Cualitativo</span></div>
+   <div class="tscroll"><table class="rt" style="font-size:11px">
+    <thead><tr><th>Val</th><th>Rating</th><th>Descripción</th></tr></thead>
+    <tbody>
+     <tr><td><b>5</b></td><td><span class="pill pr">Muy alto</span></td><td>Afectación crítica a la capacidad de operar; posible impacto sobre licencias o intervención supervisora.</td></tr>
+     <tr><td><b>4</b></td><td><span class="pill pr">Alto</span></td><td>Investigación formal, supervisión reforzada o actuaciones que limiten la actividad.</td></tr>
+     <tr><td><b>3</b></td><td><span class="pill pa">Medio</span></td><td>Requerimiento formal relevante sin comprometer la continuidad.</td></tr>
+     <tr><td><b>2</b></td><td><span class="pill pa">Bajo</span></td><td>Requerimiento menor o aclaración supervisora documentada.</td></tr>
+     <tr><td><b>1</b></td><td><span class="pill pv">Muy bajo</span></td><td>Consulta informal sin afectación relevante.</td></tr>
+    </tbody>
+   </table></div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">② Impacto Reputacional</div><span class="badge bw">Cualitativo</span></div>
+   <div class="tscroll"><table class="rt" style="font-size:11px">
+    <thead><tr><th>Val</th><th>Rating</th><th>Descripción</th></tr></thead>
+    <tbody>
+     <tr><td><b>5</b></td><td><span class="pill pr">Muy alto</span></td><td>Impacto en medios nacionales; pérdida significativa de confianza de clientes o regulador.</td></tr>
+     <tr><td><b>4</b></td><td><span class="pill pr">Alto</span></td><td>Exposición en medios especializados; percepción negativa de clientes o mercado.</td></tr>
+     <tr><td><b>3</b></td><td><span class="pill pa">Medio</span></td><td>Percepción negativa moderada, recuperable con acciones correctoras.</td></tr>
+     <tr><td><b>2</b></td><td><span class="pill pa">Bajo</span></td><td>Incidencia reputacional acotada, sin afectación significativa.</td></tr>
+     <tr><td><b>1</b></td><td><span class="pill pv">Muy bajo</span></td><td>Sin exposición externa relevante.</td></tr>
+    </tbody>
+   </table></div>
+  </div>
+ </div>
+
+ <!-- Diseño + Ejecución + Efectividad -->
+ <div class="g3" style="margin-bottom:14px">
+  <div class="card">
+   <div class="card-hd"><div class="ct">① Diseño del Control</div></div>
+   <div class="tscroll"><table class="rt" style="font-size:11.5px">
+    <thead><tr><th>Val</th><th>Rating</th><th>Descripción</th></tr></thead>
+    <tbody>
+     <tr><td><b>4</b></td><td><span class="pill pv">Fuerte</span></td><td>Cubre integralmente el riesgo</td></tr>
+     <tr><td><b>3</b></td><td><span class="pill pv">Satisfactorio</span></td><td>Cobertura alta con pequeñas dependencias</td></tr>
+     <tr><td><b>2</b></td><td><span class="pill pa">Mejorable</span></td><td>Cubre parcialmente; requiere ajustes</td></tr>
+     <tr><td><b>1</b></td><td><span class="pill pr">Débil</span></td><td>No está adecuadamente definido</td></tr>
+    </tbody>
+   </table></div>
+   <div style="padding:8px 14px;font-size:10.5px;color:var(--red);font-weight:500">⚠️ Diseño = 1 fuerza Ejecución = 1</div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">② Ejecución del Control</div></div>
+   <div class="tscroll"><table class="rt" style="font-size:11.5px">
+    <thead><tr><th>Val</th><th>Rating</th><th>Descripción</th></tr></thead>
+    <tbody>
+     <tr><td><b>4</b></td><td><span class="pill pv">Fuerte</span></td><td>Ejecución consistente — evidencia completa y trazable</td></tr>
+     <tr><td><b>3</b></td><td><span class="pill pv">Satisfactorio</span></td><td>Ejecución sólida — excepciones menores gestionadas</td></tr>
+     <tr><td><b>2</b></td><td><span class="pill pa">Mejorable</span></td><td>Ejecuciones inconsistentes y coberturas parciales</td></tr>
+     <tr><td><b>1</b></td><td><span class="pill pr">Débil</span></td><td>No se ejecuta o sin evidencias</td></tr>
+    </tbody>
+   </table></div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">③ Efectividad del Control individual</div><span class="badge bw">Diseño × Ejecución</span></div>
+   <div class="tscroll"><table class="rt" style="font-size:11.5px">
+    <thead><tr><th>Score</th><th>Rating</th><th>Interpretación</th></tr></thead>
+    <tbody>
+     <tr><td>13–16</td><td><span class="pill pv">Fuerte</span></td><td>Control robusto, bien diseñado y ejecutado</td></tr>
+     <tr><td>9–12</td><td><span class="pill pv">Satisfactorio</span></td><td>Efectivo con gaps menores</td></tr>
+     <tr><td>5–8</td><td><span class="pill pa">Mejorable</span></td><td>Debilidades que reducen la efectividad</td></tr>
+     <tr><td>1–4</td><td><span class="pill pr">Débil</span></td><td>No mitiga adecuadamente el riesgo</td></tr>
+    </tbody>
+   </table></div>
+  </div>
+ </div>
+
+ <!-- Entorno de control -->
+ <div class="card" style="margin-top:0">
+  <div class="card-hd"><div class="ct">④ Efectividad del Entorno de Control</div><span class="badge bw">Media de scores de controles del evento · misma escala</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+   <div class="tscroll">
+    <table class="rt" style="font-size:11.5px">
+     <thead><tr><th>Score medio</th><th>Rating</th><th>Interpretación</th></tr></thead>
+     <tbody>
+      <tr><td>13–16</td><td><span class="pill pv">Fuerte</span></td><td>Entorno de control robusto — cubre integralmente el riesgo</td></tr>
+      <tr><td>9–12</td><td><span class="pill pv">Satisfactorio</span></td><td>Entorno efectivo con gaps menores gestionados</td></tr>
+      <tr><td>5–8</td><td><span class="pill pa">Mejorable</span></td><td>Debilidades relevantes que reducen parcialmente la cobertura</td></tr>
+      <tr><td>1–4</td><td><span class="pill pr">Débil</span></td><td>El conjunto de controles no mitiga adecuadamente el riesgo</td></tr>
+     </tbody>
+    </table>
+   </div>
+   <div style="padding:14px;border-left:1px solid var(--border)">
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.7">
+     <p style="margin-bottom:8px"><strong style="color:var(--navy)">Cálculo:</strong> Media aritmética de los scores de efectividad individual de todos los controles asociados al evento de riesgo.</p>
+     <p style="margin-bottom:8px"><strong style="color:var(--navy)">Nomenclatura:</strong> Usa exactamente la misma escala y nombres que la efectividad individual (Fuerte / Satisfactorio / Mejorable / Débil).</p>
+     <p><strong style="color:var(--navy)">Uso:</strong> El entorno de control es el input que, junto con el riesgo inherente, determina el <strong>riesgo residual</strong> mediante la matriz de transición.</p>
+    </div>
+   </div>
+  </div>
+ </div>
+
+ <!-- Matrices -->
+ <div style="margin-top:8px;font-family:'DM Serif Display',serif;font-size:18px;color:var(--navy);margin-bottom:12px">Matrices de Resultado</div>
+ <div class="g2" style="margin-bottom:14px">
+  <div class="card">
+   <div class="card-hd"><div class="ct">Inherente — Frecuencia × Impacto Final</div></div>
+   <div style="padding:14px;overflow-x:auto"><div id="matrizInh"></div>
+    <div style="display:flex;gap:12px;margin-top:8px;font-size:11px">
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#B7E4C7;border-radius:2px;display:inline-block"></span>Verde 1–5</span>
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#FFE08A;border-radius:2px;display:inline-block"></span>Ámbar 6–14</span>
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#FFBCBC;border-radius:2px;display:inline-block"></span>Rojo 15–25</span>
+    </div>
+   </div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">Efectividad Control — Diseño × Ejecución</div></div>
+   <div style="padding:14px;overflow-x:auto"><div id="matrizCtrl"></div>
+    <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;flex-wrap:wrap">
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#B7E4C7;border-radius:2px;display:inline-block"></span>Fuerte 13–16</span>
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#D4F5E9;border-radius:2px;display:inline-block"></span>Satisf. 9–12</span>
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#FFE08A;border-radius:2px;display:inline-block"></span>Mejor. 5–8</span>
+     <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;background:#FFBCBC;border-radius:2px;display:inline-block"></span>Débil 1–4</span>
+    </div>
+   </div>
+  </div>
+ </div>
+ <div class="card">
+  <div class="card-hd"><div class="ct">Matriz Riesgo Residual — Inherente × Entorno de Control</div></div>
+  <div style="padding:14px;overflow-x:auto">
+   <table style="border-collapse:collapse;font-size:12px;min-width:500px">
+    <thead><tr>
+     <th style="padding:8px 14px;background:var(--navy);color:#fff">R.Inherente</th>
+     <th style="padding:8px 12px;background:var(--navy);color:#fff;text-align:center">Fuerte (13–16)</th>
+     <th style="padding:8px 12px;background:var(--navy);color:#fff;text-align:center">Satisfactorio (9–12)</th>
+     <th style="padding:8px 12px;background:var(--navy);color:#fff;text-align:center">Mejorable (5–8)</th>
+     <th style="padding:8px 12px;background:var(--navy);color:#fff;text-align:center">Débil (1–4)</th>
+    </tr></thead>
+    <tbody>
+     <tr><td style="padding:10px 14px;background:var(--rbg);font-weight:700;color:var(--red)">Alto (15–25)</td>
+      <td style="padding:10px;background:var(--abg);text-align:center"><span style="color:var(--amber);font-weight:700">ámbar</span></td>
+      <td style="padding:10px;background:var(--abg);text-align:center"><span style="color:var(--amber);font-weight:700">ámbar</span></td>
+      <td style="padding:10px;background:var(--rbg);text-align:center"><span style="color:var(--red);font-weight:700">rojo</span></td>
+      <td style="padding:10px;background:var(--rbg);text-align:center"><span style="color:var(--red);font-weight:700">rojo</span></td></tr>
+     <tr><td style="padding:10px 14px;background:var(--abg);font-weight:700;color:var(--amber)">Medio (6–14)</td>
+      <td style="padding:10px;background:var(--gbg);text-align:center"><span style="color:var(--green);font-weight:700">verde</span></td>
+      <td style="padding:10px;background:var(--gbg);text-align:center"><span style="color:var(--green);font-weight:700">verde</span></td>
+      <td style="padding:10px;background:var(--abg);text-align:center"><span style="color:var(--amber);font-weight:700">ámbar</span></td>
+      <td style="padding:10px;background:var(--rbg);text-align:center"><span style="color:var(--red);font-weight:700">rojo</span></td></tr>
+     <tr><td style="padding:10px 14px;background:var(--gbg);font-weight:700;color:var(--green)">Bajo (1–5)</td>
+      <td style="padding:10px;background:var(--gbg);text-align:center"><span style="color:var(--green);font-weight:700">verde</span></td>
+      <td style="padding:10px;background:var(--gbg);text-align:center"><span style="color:var(--green);font-weight:700">verde</span></td>
+      <td style="padding:10px;background:var(--gbg);text-align:center"><span style="color:var(--green);font-weight:700">verde</span></td>
+      <td style="padding:10px;background:var(--abg);text-align:center"><span style="color:var(--amber);font-weight:700">ámbar</span></td></tr>
+    </tbody>
+   </table>
+  </div>
+ </div>
+</div>
+
+<!-- ══ P6 — COMPARATIVA ══ -->
+<div class="page anim" id="p7">
+ <div class="pbar">
+  <div><div class="pt">Comparativa de Versiones</div>
+   <div class="ps">Sube dos evaluaciones para comparar ratings · KRIs · KCIs</div></div>
+ </div>
+ <div class="g2" style="margin-bottom:16px;align-items:start">
+  <div class="card">
+   <div class="card-hd"><div class="ct">Versión Anterior (Base)</div></div>
+   <div style="padding:14px">
+    <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer"
+      onclick="document.getElementById('cmpA').click()"
+      ondragover="event.preventDefault()" ondrop="handleCmpDrop(event,'A')">
+     <div style="font-size:28px;margin-bottom:6px">📁</div>
+     <p style="font-size:12px;color:var(--muted)">Excel o JSON exportado anteriormente</p>
+     <button class="btn btn-s btn-sm" style="margin-top:8px">Seleccionar</button>
+     <input type="file" id="cmpA" accept=".xlsx,.xls,.json" style="display:none" onchange="handleCmpFile(event,'A')">
+    </div>
+    <div id="cmpStatusA" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+   </div>
+  </div>
+  <div class="card">
+   <div class="card-hd"><div class="ct">Versión Actual</div></div>
+   <div style="padding:14px">
+    <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer"
+      onclick="document.getElementById('cmpB').click()"
+      ondragover="event.preventDefault()" ondrop="handleCmpDrop(event,'B')">
+     <div style="font-size:28px;margin-bottom:6px">📂</div>
+     <div style="display:flex;gap:6px;justify-content:center;margin-top:8px">
+      <button class="btn btn-s btn-sm" onclick="event.stopPropagation();document.getElementById('cmpB').click()">Seleccionar</button>
+      <button class="btn btn-p btn-sm" onclick="event.stopPropagation();useCurrent()">Usar datos actuales</button>
+     </div>
+     <input type="file" id="cmpB" accept=".xlsx,.xls,.json" style="display:none" onchange="handleCmpFile(event,'B')">
+    </div>
+    <div id="cmpStatusB" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+   </div>
+  </div>
+ </div>
+ <div id="cmpSection" style="display:none">
+  <div class="tabs">
+   <div class="tab active" onclick="switchCmpTab('rat')" id="ct0">Ratings</div>
+   <div class="tab" onclick="switchCmpTab('kri')" id="ct1">KRIs</div>
+   <div class="tab" onclick="switchCmpTab('kci')" id="ct2">KCIs</div>
+  </div>
+  <div id="cmpTab_rat">
+   <div class="card"><div class="card-hd"><div class="ct">Cambios en Ratings Residuales</div></div>
+    <div class="tscroll"><table class="rt"><thead><tr>
+     <th>Evento</th><th>N2</th><th>Rating Anterior</th><th>Rating Actual</th><th>Cambio</th>
+    </tr></thead><tbody id="cmpRatBody"></tbody></table></div></div>
+  </div>
+  <div id="cmpTab_kri" style="display:none">
+   <div class="card"><div class="card-hd"><div class="ct">Evolución de KRIs</div></div>
+    <div class="tscroll"><table class="rt"><thead><tr>
+     <th>Evento</th><th>KRI</th><th>Anterior</th><th>Actual</th><th>Variación</th>
+    </tr></thead><tbody id="cmpKriBody"></tbody></table></div></div>
+  </div>
+  <div id="cmpTab_kci" style="display:none">
+   <div class="card"><div class="card-hd"><div class="ct">Evolución de KCIs</div></div>
+    <div class="tscroll"><table class="rt"><thead><tr>
+     <th>Evento</th><th>Control</th><th>KCI</th><th>Anterior</th><th>Actual</th><th>Variación</th>
+    </tr></thead><tbody id="cmpKciBody"></tbody></table></div></div>
+  </div>
+ </div>
+</div>
+
+</main>
+
+<script>
+// ═══ STATE ═══
+let risks = [];
+let cmpDataA = null, cmpDataB = null;
+let thresholds = { mb:100000000, apetito:2, tramos:[] };
+let FREQ_LABELS = {5:'Muy alta',4:'Alta',3:'Media',2:'Baja',1:'Muy baja'};
+let IMP_LABELS  = {5:'Muy alto',4:'Alto',3:'Medio',2:'Bajo',1:'Muy bajo'};
+let DIS_LABELS  = {4:'Fuerte',3:'Satisfactorio',2:'Mejorable',1:'Débil'};
+
+// ═══ NAVIGATION ═══
+function nav(n) {
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i+1===n));
+  document.querySelectorAll('.nb').forEach(b => {
+    b.classList.toggle('active', b.id === 'nb'+n);
+  });
+  if(n===2) renderRiesgos();
+  if(n===3) renderControles();
+  if(n===4) renderResidual();
+  if(n===5) renderResultados();
+  if(n===6) { recalcThresholds(); renderMatrices(); }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ═══ EXPORT MENU ═══
+function toggleExp() {
+  const m = document.getElementById('expMenu');
+  m.style.display = m.style.display==='none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  if(!document.getElementById('expWrap').contains(e.target))
+    document.getElementById('expMenu').style.display='none';
+});
+
+// ═══ TOAST ═══
+function toast(msg, ms=4000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display='block';
+  clearTimeout(t._t); t._t = setTimeout(()=>t.style.display='none', ms);
+}
+
+// ═══ CALCS ═══
+function iScore(r) {
+  if(!r.frecuencia) return null;
+  return r.frecuencia * Math.max(r.impFin||0, r.impReg||0, r.impRep||0);
+}
+function iRating(s) {
+  if(s===null||s===undefined) return null;
+  return s>=15?'rojo': s>=6?'ambar':'verde';
+}
+function iLabel(s) {
+  if(s===null||s===undefined) return '—';
+  return s>=15?'Alto': s>=6?'Medio':'Bajo';
+}
+function ctrlScore(c) {
+  const d=c.diseno||1, e=d===1?1:(c.ejecucion||1);
+  return d*e;
+}
+function ctrlEffLabel(s) { return s>=13?'Fuerte':s>=9?'Satisfactorio':s>=5?'Mejorable':'Débil'; }
+function ctrlEffClass(s) { return s>=9?'pv':s>=5?'pa':'pr'; }
+function ecScore(r) {
+  if(!r.controls||!r.controls.length) return null;
+  const sc = r.controls.map(ctrlScore);
+  return sc.reduce((a,b)=>a+b,0)/sc.length;
+}
+function ecLabel(avg) {
+  if(avg===null||avg===undefined) return '—';
+  return avg>=13?'Fuerte':avg>=9?'Satisfactorio':avg>=5?'Mejorable':'Débil';
+}
+function ecClass(avg) { return avg>=13?'pv':avg>=9?'pv':avg>=5?'pa':'pr'; }
+function calcResidual(r) {
+  const is=iScore(r), ec=ecScore(r);
+  if(is===null||ec===null) return null;
+  const ih=is>=15?'alto':is>=6?'medio':'bajo';
+  const ecl=ec>=13?'adecuado':ec>=9?'correcto':ec>=5?'mejorable':'deficiente';
+  const M={
+    alto:{adecuado:'ambar',correcto:'ambar',mejorable:'rojo',deficiente:'rojo'},
+    medio:{adecuado:'verde',correcto:'verde',mejorable:'ambar',deficiente:'rojo'},
+    bajo:{adecuado:'verde',correcto:'verde',mejorable:'verde',deficiente:'ambar'}
+  };
+  return M[ih][ecl];
+}
+function worstRating(arr) {
+  if(arr.includes('rojo')) return 'rojo';
+  if(arr.includes('ambar')) return 'ambar';
+  return arr.length?'verde':null;
+}
+function getRR(r) { return r.residualFinal||calcResidual(r); }
+function pill(r) {
+  if(!r) return '<span class="pill pg">—</span>';
+  const lbl={verde:'Verde',ambar:'Ámbar',rojo:'Rojo'};
+  const cls={verde:'pv',ambar:'pa',rojo:'pr'};
+  const d={verde:'dv2',ambar:'da2',rojo:'dr2'};
+  return `<span class="pill ${cls[r]}"><span class="dot2 ${d[r]}"></span>${lbl[r]}</span>`;
+}
+function scBox(s, invert) {
+  if(s===null||s===undefined) return '<span class="sc">—</span>';
+  let cls;
+  if(invert) cls = s>=9?'sc-l':s>=5?'sc-m':'sc-h';
+  else        cls = s>=15?'sc-h':s>=6?'sc-m':'sc-l';
+  const val = typeof s==='number'&&s%1!==0 ? s.toFixed(1) : s;
+  return `<span class="sc ${cls}">${val}</span>`;
+}
+
+// ═══ FILE HANDLING ═══
+function handleFile(e) { processFile(e.target.files[0]); e.target.value=''; }
+
+function processFile(file) {
+  if(!file) return;
+  const load = () => {
+    const wb = XLSX.read(arguments[0]||file.__buf, {type:'array'});
+    // Read Parámetros sheet if present
+    const pSheet = wb.Sheets['Parámetros']||wb.Sheets['Parametros'];
+    if(pSheet) readParamsSheet(pSheet);
+    // Find data sheet
+    const dsName = wb.SheetNames.find(n=>n.toLowerCase().includes('matriz')||n.toLowerCase().includes('riesgo')) || wb.SheetNames[0];
+    parseJBCM(XLSX.utils.sheet_to_json(wb.Sheets[dsName], {header:1, defval:''}));
+  };
+  const reader = new FileReader();
+  reader.onload = e2 => {
+    const buf = e2.target.result;
+    if(!window.XLSX) {
+      const s = document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = () => {
+        const wb = XLSX.read(buf,{type:'array'});
+        const pSheet = wb.Sheets['Parámetros']||wb.Sheets['Parametros'];
+        if(pSheet) readParamsSheet(pSheet);
+        const dsName = wb.SheetNames.find(n=>n.toLowerCase().includes('matriz')||n.toLowerCase().includes('riesgo'))||wb.SheetNames[0];
+        parseJBCM(XLSX.utils.sheet_to_json(wb.Sheets[dsName],{header:1,defval:''}));
+      };
+      document.head.appendChild(s);
+    } else {
+      const wb = XLSX.read(buf,{type:'array'});
+      const pSheet = wb.Sheets['Parámetros']||wb.Sheets['Parametros'];
+      if(pSheet) readParamsSheet(pSheet);
+      const dsName = wb.SheetNames.find(n=>n.toLowerCase().includes('matriz')||n.toLowerCase().includes('riesgo'))||wb.SheetNames[0];
+      parseJBCM(XLSX.utils.sheet_to_json(wb.Sheets[dsName],{header:1,defval:''}));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function readParamsSheet(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  const lk = {};
+  rows.forEach(r => { const k=String(r[13]||'').trim(); if(k.startsWith('__')) lk[k]=r[14]; });
+  if(lk['__PARAM_MB__'])      { thresholds.mb=parseFloat(lk['__PARAM_MB__'])||thresholds.mb; document.getElementById('thMB').value=thresholds.mb; }
+  if(lk['__PARAM_APETITO__']) { thresholds.apetito=parseFloat(lk['__PARAM_APETITO__'])||thresholds.apetito; document.getElementById('thApetito').value=thresholds.apetito; }
+  const fm={5:'__FREQ_5_LABEL__',4:'__FREQ_4_LABEL__',3:'__FREQ_3_LABEL__',2:'__FREQ_2_LABEL__',1:'__FREQ_1_LABEL__'};
+  Object.entries(fm).forEach(([v,k])=>{ if(lk[k]) FREQ_LABELS[v]=String(lk[k]); });
+  const im={5:'__IMP_5_LABEL__',4:'__IMP_4_LABEL__',3:'__IMP_3_LABEL__',2:'__IMP_2_LABEL__',1:'__IMP_1_LABEL__'};
+  Object.entries(im).forEach(([v,k])=>{ if(lk[k]) IMP_LABELS[v]=String(lk[k]); });
+  recalcThresholds();
+}
+
+// ═══ PARSER ═══
+// ═══ PARSER — índices verificados contra el Excel JBCM ═══
+const N2_NAMES_ALL = [
+  'Entorno','Estrategia Interna','Estructural','Mercado','Crédito','Liquidez',
+  'Continuidad en Sistemas','Ciberseguridad','Fraude interno','Fraude externo',
+  'Ejecución procesos','Datos','Personas','Legal, fiscal y laboral','Regulatorio',
+  'Seguridad física','Conducta','Indisponibilidad terceros','Incumplimiento SLA','Ataques cadena suministro'
+];
+
+function parseJBCM(rows) {
+  risks = [];
+  if(!rows || !rows.length) { toast('⚠️ Archivo vacío.'); return; }
+
+  // 1. Encontrar la fila de cabecera (contiene "Área" o "Area" y "Proceso")
+  let headerIdx = -1;
+  for(let i = 0; i < Math.min(rows.length, 15); i++) {
+    const flat = rows[i].map(v => String(v||'').toLowerCase().trim()).join('|');
+    if((flat.includes('área') || flat.includes('area')) && flat.includes('proceso') && flat.includes('subproceso')) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if(headerIdx === -1) { toast('⚠️ No se encontró cabecera. Verifica el formato del Excel.'); return; }
+
+  // 2. Mapear índices exactos leyendo la cabecera
+  const hdr = rows[headerIdx].map(v =>
+    String(v||'').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  );
+
+  // Función búsqueda exacta (sin acentos)
+  const exact  = t  => hdr.findIndex(h => h === t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+  // Búsqueda por contenido después de un índice dado
+  const after  = (from, t) => hdr.findIndex((h,i) => i > from && h.includes(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+
+  // Columnas ancla — nombres únicos en la cabecera
+  const iArea      = exact('area de negocio');
+  const iProceso   = exact('proceso');
+  const iSubproceso= exact('subproceso');
+  const iOwner     = exact('owner del proceso');
+  const iRiesgo    = hdr.findIndex(h => h.startsWith('riesgo') && h.includes('detalle'));
+  const iKRI       = exact('kri');
+  const iFinanciero= exact('financiero');
+  const iRep       = exact('reputacional');
+  const iCtrlId    = exact('id control');
+  const iCtrlNom   = exact('control');
+  const iCtrlOwner = exact('owner de control');
+  const iEvidencia = hdr.findIndex(h => h.includes('evidencia'));
+  const iKCI       = exact('kci');
+  const iMitiga    = hdr.findIndex(h => h.includes('mitiga'));
+
+  // Frecuencia: label en col "Frecuencia", número en la siguiente "Cuantificación"
+  const iFrecLabel = exact('frecuencia');
+  const iFrecNum   = iFrecLabel !== -1 ? iFrecLabel + 1 : -1;  // AI = AH+1
+
+  // Impacto: label en "Impacto", luego Financiero, Regulatorio (después de Financiero), Reputacional
+  const iImpLabel  = exact('impacto');
+  // Regulatorio del impacto: viene justo después de Financiero (evita el N2 Regulatorio)
+  const iRegImp    = iFinanciero !== -1 ? iFinanciero + 1 : -1;  // AL = AK+1
+
+  // Diseño: label en "Diseño", número en la siguiente "Cuantificación"
+  const iDisLabel  = exact('diseno');
+  const iDisNum    = iDisLabel !== -1 ? iDisLabel + 1 : -1;     // AW = AV+1
+
+  // Ejecución: label en "Ejecucion", número en la siguiente "Cuantificación"
+  const iEjecLabel = exact('ejecucion');
+  const iEjecNum   = iEjecLabel !== -1 ? iEjecLabel + 1 : -1;   // AY = AX+1
+
+  const C = {
+    area: iArea, proceso: iProceso, subproceso: iSubproceso,
+    owner: iOwner, riesgo: iRiesgo, kri: iKRI,
+    frecNum: iFrecNum,
+    impFin: iFinanciero, impReg: iRegImp, impRep: iRep,
+    ctrlId: iCtrlId, ctrlNom: iCtrlNom, ctrlOwner: iCtrlOwner,
+    evidencia: iEvidencia, kci: iKCI, mitiga: iMitiga,
+    disNum: iDisNum, ejNum: iEjecNum,
+  };
+
+  // N2: columnas entre riesgo y KRI
+  const n2Start = iRiesgo !== -1 ? iRiesgo + 1 : 7;
+  const n2End   = iKRI    !== -1 ? iKRI        : 32;
+  const N2_COLS = {};
+  N2_NAMES_ALL.forEach(name => {
+    const norm = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const idx = hdr.findIndex((h,i) => i >= n2Start && i < n2End && h === norm);
+    if(idx !== -1) N2_COLS[idx] = name;
+  });
+
+  // 3. Parsear filas de datos
+  const riskMap = new Map();
+  const dataStart = headerIdx + 1;
+
+  for(let i = dataStart; i < rows.length; i++) {
+    const r = rows[i];
+    if(!r || r.every(v => !v || String(v).trim() === '')) continue;
+
+    const g  = idx => idx !== -1 && idx < r.length ? String(r[idx]||'').trim() : '';
+    const gi = idx => idx !== -1 && idx < r.length ? (parseInt(r[idx])||null) : null;
+
+    const evento  = g(C.riesgo);
+    const ctrlNom = g(C.ctrlNom);
+    if(!evento && !ctrlNom) continue;
+
+    const area       = g(C.area);
+    const proceso    = g(C.proceso);
+    const subproceso = g(C.subproceso);
+    const owner      = g(C.owner);
+    const kri        = g(C.kri);
+    const frecuencia = gi(C.frecNum);
+    const impFin     = gi(C.impFin);
+    const impReg     = gi(C.impReg);
+    const impRep     = gi(C.impRep);
+
+    const n2Tags = [];
+    for(const [idx, name] of Object.entries(N2_COLS)) {
+      const v = r[parseInt(idx)];
+      if(v && String(v).trim() !== '' && String(v).trim() !== '0' && v !== 0) n2Tags.push(name);
+    }
+
+    const riskKey = `${subproceso}|||${evento}`;
+    if(!riskMap.has(riskKey)) {
+      riskMap.set(riskKey, {
+        area, proceso, subproceso, owner, evento,
+        riesgoN2: n2Tags.join(' · '), n2Tags,
+        kri, frecuencia, impFin, impReg, impRep,
+        residualFinal: null, justificacion: '',
+        controls: [], _source: 'jbcm'
+      });
+    }
+    const risk = riskMap.get(riskKey);
+    // Actualizar campos si vienen en esta fila (se repiten)
+    if(area)       risk.area       = area;
+    if(proceso)    risk.proceso    = proceso;
+    if(subproceso) risk.subproceso = subproceso;
+    if(owner)      risk.owner      = owner;
+    if(frecuencia) risk.frecuencia = frecuencia;
+    if(impFin)     risk.impFin     = impFin;
+    if(impReg)     risk.impReg     = impReg;
+    if(impRep)     risk.impRep     = impRep;
+    if(kri)        risk.kri        = kri;
+    if(n2Tags.length) { risk.n2Tags = n2Tags; risk.riesgoN2 = n2Tags.join(' · '); }
+
+    if(ctrlNom) {
+      const d = gi(C.disNum);
+      const e = gi(C.ejNum);
+      risk.controls.push({
+        idControl: g(C.ctrlId),
+        nombre:    ctrlNom,
+        ownerCtrl: g(C.ctrlOwner),
+        evidencia: g(C.evidencia),
+        kciNombre: g(C.kci),
+        kciValor:  null,
+        mitiga:    g(C.mitiga) || 'Ambos',
+        diseno:    d,
+        ejecucion: d === 1 ? 1 : (e || 1),
+      });
+    }
+  }
+
+  risks = Array.from(riskMap.values()).filter(r => r.evento);
+
+  if(!risks.length) { toast('⚠️ No se encontraron eventos. Verifica el Excel.'); return; }
+
+  const areas = [...new Set(risks.map(r=>r.area))].filter(Boolean).length;
+  const procs = [...new Set(risks.map(r=>r.proceso))].length;
+  const ctrls = risks.reduce((a,r)=>a+r.controls.length, 0);
+  toast(`✅ ${risks.length} eventos · ${areas} áreas · ${procs} procesos · ${ctrls} controles`, 5000);
+
+  document.getElementById('btnImport').textContent = `✓ ${risks.length} eventos`;
+  document.getElementById('btnImport').classList.add('loaded');
+
+  renderTabla();
+  renderResidual();
+  nav(1);
+}
+
+// ═══ RENDER TABLA DE DATOS ═══
+function renderTabla() {
+  document.getElementById('emptyState1').style.display = 'none';
+  document.getElementById('tableSection').style.display = 'block';
+
+  const nProcesos    = [...new Set(risks.map(r=>r.proceso))].filter(Boolean).length;
+  const nSubprocesos = [...new Set(risks.map(r=>r.subproceso))].filter(Boolean).length;
+  const nEventos     = risks.length;
+  const nControles   = risks.reduce((a,r)=>a+r.controls.length, 0);
+  const totalFilas   = risks.reduce((a,r)=>a+(r.controls.length||1), 0);
+
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat" style="flex:1;min-width:120px"><div class="lbl">Procesos</div><div class="val">${nProcesos}</div></div>
+    <div class="stat" style="flex:1;min-width:120px"><div class="lbl">Subprocesos</div><div class="val">${nSubprocesos}</div></div>
+    <div class="stat" style="flex:1;min-width:120px"><div class="lbl">Eventos de Riesgo</div><div class="val">${nEventos}</div></div>
+    <div class="stat" style="flex:1;min-width:120px"><div class="lbl">Controles</div><div class="val">${nControles}</div></div>`;
+
+  document.getElementById('invCnt').textContent = totalFilas + ' filas';
+
+  const tbody = document.getElementById('invBody');
+  tbody.innerHTML = '';
+
+  const fOps = (val) => [1,2,3,4,5].map(v =>
+    `<option value="${v}" ${val==v?'selected':''}>${v} — ${FREQ_LABELS[v]||v}</option>`
+  ).join('');
+  const iOps = (val) => [1,2,3,4,5].map(v =>
+    `<option value="${v}" ${val==v?'selected':''}>${v} — ${IMP_LABELS[v]||v}</option>`
+  ).join('');
+  const dOps = (val) => [1,2,3,4].map(v =>
+    `<option value="${v}" ${val==v?'selected':''}>${v} — ${DIS_LABELS[v]||v}</option>`
+  ).join('');
+  const mOps = (val) => ['Frecuencia','Impacto','Ambos'].map(v =>
+    `<option ${val===v?'selected':''}>${v}</option>`
+  ).join('');
+
+  const calcCell = (val, invert) => {
+    if(val===null||val===undefined) return `<span class="sc">—</span>`;
+    const cls = invert
+      ? (val>=9?'sc-l':val>=5?'sc-m':'sc-h')
+      : (val>=15?'sc-h':val>=6?'sc-m':'sc-l');
+    return `<span class="sc ${cls}">${typeof val==='number'&&val%1!==0?val.toFixed(1):val}</span>`;
+  };
+
+  risks.forEach((ri, rIdx) => {
+    const ctrls = ri.controls.length ? ri.controls : [null];
+    const n2html = ri.n2Tags && ri.n2Tags.length
+      ? ri.n2Tags.map(t=>`<span class="pill pb" style="margin:1px;font-size:10px">${t}</span>`).join('')
+      : '<span style="color:var(--muted)">—</span>';
+
+    ctrls.forEach((c, ci) => {
+      const cIdx = ci; // control index within risk
+      const isFirst = ci === 0;
+      const rowBg = !isFirst ? 'background:#FAFBFF;' : '';
+
+      // Calculated fields for this row
+      const inhS  = iScore(ri);
+      const inhR  = iRating(inhS);
+      const ec    = ecScore(ri);
+      const ecl   = ecLabel(ec);
+      const res   = getRR(ri);
+      const cs    = c ? (()=>{ const d=c.diseno||1; const e=d===1?1:(c.ejecucion||1); return d*e; })() : null;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <!-- PROCESOS: editables solo en primera fila del grupo -->
+        <td style="font-size:11px;${rowBg}min-width:90px">
+          ${isFirst ? `<input type="text" value="${ri.area||''}" onchange="updR(${rIdx},'area',this.value)" style="width:100%;font-size:11px" placeholder="Área">` : ''}
+        </td>
+        <td style="font-size:11px;${rowBg}min-width:120px">
+          ${isFirst ? `<input type="text" value="${ri.proceso||''}" onchange="updR(${rIdx},'proceso',this.value)" style="width:100%;font-size:11px" placeholder="Proceso">` : ''}
+        </td>
+        <td style="font-size:11px;${rowBg}min-width:120px">
+          ${isFirst ? `<input type="text" value="${ri.subproceso||''}" onchange="updR(${rIdx},'subproceso',this.value)" style="width:100%;font-size:11px" placeholder="Subproceso">` : ''}
+        </td>
+        <td style="font-size:11px;${rowBg}min-width:110px">
+          ${isFirst ? `<input type="text" value="${ri.owner||''}" onchange="updR(${rIdx},'owner',this.value)" style="width:100%;font-size:11px;color:var(--muted)" placeholder="Owner">` : ''}
+        </td>
+        <td style="min-width:200px;${rowBg}">
+          ${isFirst ? `<textarea onchange="updR(${rIdx},'evento',this.value)" style="width:100%;font-size:11.5px;min-height:44px;resize:vertical;border:1px solid var(--border);border-radius:5px;padding:4px 7px;font-family:'DM Sans',sans-serif;line-height:1.4">${ri.evento||''}</textarea>` : ''}
+        </td>
+        <td style="max-width:130px;${rowBg}">
+          ${isFirst ? n2html : ''}
+        </td>
+        <td style="min-width:110px;${rowBg}">
+          ${isFirst ? `<input type="text" value="${ri.kri||''}" onchange="updR(${rIdx},'kri',this.value)" style="width:100%;font-size:11px;color:var(--muted)" placeholder="KRI">` : ''}
+        </td>
+
+        <!-- EVALUACIÓN INHERENTE: desplegables en primera fila, calculado en readonly -->
+        <td style="text-align:center;${rowBg}">
+          ${isFirst ? `<select onchange="updR(${rIdx},'frecuencia',+this.value);refreshTablaRow(${rIdx})" style="min-width:95px">${fOps(ri.frecuencia)}</select>` : ''}
+        </td>
+        <td style="text-align:center;${rowBg}">
+          ${isFirst ? `<select onchange="updR(${rIdx},'impFin',+this.value);refreshTablaRow(${rIdx})" style="min-width:80px">${iOps(ri.impFin)}</select>` : ''}
+        </td>
+        <td style="text-align:center;${rowBg}">
+          ${isFirst ? `<select onchange="updR(${rIdx},'impReg',+this.value);refreshTablaRow(${rIdx})" style="min-width:80px">${iOps(ri.impReg)}</select>` : ''}
+        </td>
+        <td style="text-align:center;${rowBg}">
+          ${isFirst ? `<select onchange="updR(${rIdx},'impRep',+this.value);refreshTablaRow(${rIdx})" style="min-width:80px">${iOps(ri.impRep)}</select>` : ''}
+        </td>
+        <!-- Impacto final CALCULADO -->
+        <td style="text-align:center;${rowBg}">
+          ${isFirst ? calcCell(Math.max(ri.impFin||0,ri.impReg||0,ri.impRep||0)||null, false) : ''}
+        </td>
+        <!-- Score Inherente CALCULADO -->
+        <td style="text-align:center;${rowBg}" id="ts_inh_${rIdx}">
+          ${isFirst ? calcCell(inhS, false) : ''}
+        </td>
+        <!-- Rating CALCULADO -->
+        <td style="${rowBg}" id="ts_rat_${rIdx}">
+          ${isFirst ? pill(inhR) : ''}
+        </td>
+
+        <!-- CONTROL: editables -->
+        <td style="min-width:70px">
+          ${c ? `<input type="text" value="${c.idControl||''}" onchange="updC(${rIdx},${cIdx},'idControl',this.value)" style="width:100%;font-size:11px;color:var(--muted)" placeholder="ID">` : '—'}
+        </td>
+        <td style="min-width:180px">
+          ${c ? `<input type="text" value="${c.nombre||''}" onchange="updC(${rIdx},${cIdx},'nombre',this.value)" style="width:100%;font-size:11.5px" placeholder="Nombre control">` : '—'}
+        </td>
+        <td style="min-width:100px">
+          ${c ? `<input type="text" value="${c.ownerCtrl||''}" onchange="updC(${rIdx},${cIdx},'ownerCtrl',this.value)" style="width:100%;font-size:11px;color:var(--muted)" placeholder="Owner">` : ''}
+        </td>
+        <td style="min-width:120px">
+          ${c ? `<input type="text" value="${c.evidencia||''}" onchange="updC(${rIdx},${cIdx},'evidencia',this.value)" style="width:100%;font-size:11px;color:var(--muted)" placeholder="Evidencia">` : ''}
+        </td>
+        <td style="min-width:110px">
+          ${c ? `<input type="text" value="${c.kciNombre||''}" onchange="updC(${rIdx},${cIdx},'kciNombre',this.value)" style="width:100%;font-size:11px;color:var(--muted)" placeholder="KCI">` : ''}
+        </td>
+        <!-- Mitiga: desplegable -->
+        <td style="text-align:center">
+          ${c ? `<select onchange="updC(${rIdx},${cIdx},'mitiga',this.value)" style="min-width:90px">${mOps(c.mitiga)}</select>` : ''}
+        </td>
+        <!-- Diseño: desplegable -->
+        <td style="text-align:center">
+          ${c ? `<select onchange="updC(${rIdx},${cIdx},'diseno',+this.value);refreshTablaRow(${rIdx})" style="min-width:100px">${dOps(c.diseno)}</select>` : ''}
+        </td>
+        <!-- Ejecución: desplegable (bloqueado si Diseño=1) -->
+        <td style="text-align:center">
+          ${c ? `<select onchange="updC(${rIdx},${cIdx},'ejecucion',+this.value);refreshTablaRow(${rIdx})" style="min-width:100px" ${c.diseno===1?'disabled':''}>${dOps(c.ejecucion)}</select>` : ''}
+        </td>
+        <!-- Score control CALCULADO -->
+        <td style="text-align:center" id="ts_cs_${rIdx}_${cIdx}">
+          ${c ? calcCell(cs, true) : ''}
+        </td>
+        <!-- Efectividad control CALCULADO -->
+        <td id="ts_eff_${rIdx}_${cIdx}">
+          ${c ? `<span class="pill ${ctrlEffClass(cs)}">${ctrlEffLabel(cs)}</span>` : ''}
+        </td>
+        <!-- Entorno control CALCULADO (solo primera fila) -->
+        <td style="text-align:center;${rowBg}" id="ts_ec_${rIdx}">
+          ${isFirst ? calcCell(ec, true) : ''}
+        </td>
+        <td style="${rowBg}" id="ts_ecl_${rIdx}">
+          ${isFirst ? `<span class="pill ${ecClass(ec)}">${ecl}</span>` : ''}
+        </td>
+        <!-- Residual CALCULADO (solo primera fila) -->
+        <td style="${rowBg}" id="ts_res_${rIdx}">
+          ${isFirst ? pill(res) : ''}
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+function updR(rIdx, field, val) {
+  risks[rIdx][field] = (field==='frecuencia'||field==='impFin'||field==='impReg'||field==='impRep') ? parseInt(val)||null : val;
+}
+function updC(rIdx, cIdx, field, val) {
+  risks[rIdx].controls[cIdx][field] = (field==='diseno'||field==='ejecucion') ? parseInt(val)||null : val;
+  if(field==='diseno' && parseInt(val)===1) risks[rIdx].controls[cIdx].ejecucion = 1;
+}
+function refreshTablaRow(rIdx) {
+  // Re-render just the calculated cells for this risk without full re-render
+  renderTabla();
+}
+
+// ═══ RENDER RIESGOS ═══
+function renderRiesgos() {
+  if(!risks.length) return;
+  document.getElementById('emptyState2').style.display='none';
+  document.getElementById('riesgosSection').style.display='block';
+  document.getElementById('inhCnt').textContent = risks.length+' eventos';
+
+  const tbody = document.getElementById('inhBody');
+  tbody.innerHTML='';
+  risks.forEach((r,i)=>{
+    const s=iScore(r), rat=iRating(s);
+    const impF=Math.max(r.impFin||0,r.impReg||0,r.impRep||0)||null;
+    const fOpts=[1,2,3,4,5].map(v=>`<option value="${v}" ${r.frecuencia==v?'selected':''}>${v} — ${FREQ_LABELS[v]}</option>`).join('');
+    const iOpts=v=>[1,2,3,4,5].map(n=>`<option value="${n}" ${v==n?'selected':''}>${n} — ${IMP_LABELS[n]}</option>`).join('');
+    const n2html=r.n2Tags&&r.n2Tags.length
+      ? r.n2Tags.map(t=>`<span class="pill pb" style="margin:1px;font-size:10px">${t}</span>`).join('')
+      : `<span class="pill pg">${r.riesgoN2||'—'}</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="font-size:11px">${r.area||'—'}</td>
+      <td style="font-size:11px;max-width:110px;white-space:normal">${r.proceso}</td>
+      <td style="font-size:11px;max-width:110px;white-space:normal">${r.subproceso}</td>
+      <td style="max-width:200px;white-space:normal;line-height:1.4;font-size:11.5px">${r.evento}</td>
+      <td style="max-width:120px">${n2html}</td>
+      <td><select onchange="updF(${i},this.value)" style="min-width:100px">${fOpts}</select></td>
+      <td><select onchange="updI(${i},'impFin',this.value)">${iOpts(r.impFin)}</select></td>
+      <td><select onchange="updI(${i},'impReg',this.value)">${iOpts(r.impReg)}</select></td>
+      <td><select onchange="updI(${i},'impRep',this.value)">${iOpts(r.impRep)}</select></td>
+      <td style="text-align:center;font-weight:700">${impF||'—'}</td>
+      <td style="text-align:center">${scBox(s,false)}</td>
+      <td>${pill(rat)}</td>`;
+    tbody.appendChild(tr);
+  });
+  renderStatsRiesgos();
+  renderHmInh();
+}
+function updF(i,v){risks[i].frecuencia=parseInt(v);renderRiesgos();renderResultados();}
+function updI(i,f,v){risks[i][f]=parseInt(v);renderRiesgos();renderResultados();}
+
+// ── Stats bar helpers ──
+function donutSVG(slices, size=80) {
+  // slices: [{pct, color, label}]
+  const r=28, cx=40, cy=40, stroke=10;
+  const circ=2*Math.PI*r;
+  let offset=0;
+  let paths='';
+  slices.forEach(s=>{
+    const dash=s.pct/100*circ;
+    paths+=`<circle cx="${cx}" cy="${cy}" r="${r}"
+      fill="none" stroke="${s.color}" stroke-width="${stroke}"
+      stroke-dasharray="${dash} ${circ-dash}"
+      stroke-dashoffset="${-offset}"
+      transform="rotate(-90 ${cx} ${cy})">
+      <title>${s.label}: ${s.pct.toFixed(1)}%</title>
+    </circle>`;
+    offset+=dash;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 80 80">${paths}
+    <text x="40" y="44" text-anchor="middle" font-size="11" font-family="DM Sans,sans-serif" font-weight="600" fill="#0F1F3D">Mix</text>
+  </svg>`;
+}
+
+function renderStatsRiesgos() {
+  const el = document.getElementById('statsRiesgos');
+  if(!el) return;
+  const total = risks.length;
+  if(!total) { el.innerHTML=''; return; }
+
+  const alto   = risks.filter(r=>iRating(iScore(r))==='rojo').length;
+  const medio  = risks.filter(r=>iRating(iScore(r))==='ambar').length;
+  const bajo   = risks.filter(r=>iRating(iScore(r))==='verde').length;
+  const sinDat = risks.filter(r=>!r.frecuencia||!(r.impFin||r.impReg||r.impRep)).length;
+
+  // Count frecuencia distribution
+  const freqDist={};
+  risks.forEach(r=>{ if(r.frecuencia){ freqDist[r.frecuencia]=(freqDist[r.frecuencia]||0)+1; } });
+
+  // Impacto final distribution
+  const impDist={};
+  risks.forEach(r=>{
+    const imp=Math.max(r.impFin||0,r.impReg||0,r.impRep||0);
+    if(imp) impDist[imp]=(impDist[imp]||0)+1;
+  });
+
+  // Donut: rating inherente
+  const ratingSlices=[
+    {pct:alto/total*100,  color:'#C0392B', label:'Alto'},
+    {pct:medio/total*100, color:'#C47A00', label:'Medio'},
+    {pct:bajo/total*100,  color:'#0E7A5A', label:'Bajo'},
+  ].filter(s=>s.pct>0);
+
+  const cards=[
+    {label:'Alto (Rojo)',  val:alto,  bg:'var(--rbg)', col:'var(--red)'},
+    {label:'Medio (Ámbar)',val:medio, bg:'var(--abg)', col:'var(--amber)'},
+    {label:'Bajo (Verde)', val:bajo,  bg:'var(--gbg)', col:'var(--green)'},
+  ];
+  if(sinDat) cards.push({label:'Sin evaluar', val:sinDat, bg:'#f0f0f0', col:'#888'});
+
+  let html = cards.map(c=>`
+    <div style="background:${c.bg};border-radius:10px;padding:12px 18px;min-width:110px;
+      flex:1;border:1px solid rgba(0,0,0,.06)">
+      <div style="font-size:10px;color:${c.col};text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:4px">${c.label}</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:28px;color:${c.col};letter-spacing:-1px">${c.val}</div>
+      <div style="font-size:10px;color:${c.col};opacity:.7">${total>0?(c.val/total*100).toFixed(0):'0'}% del total</div>
+    </div>`).join('');
+
+  // Donut circle
+  html += `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;
+    display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+    ${donutSVG(ratingSlices,80)}
+    <div style="font-size:11px;display:flex;flex-direction:column;gap:5px">
+      ${ratingSlices.map(s=>`<span style="display:flex;align-items:center;gap:5px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+        <span style="color:var(--muted)">${s.label}</span>
+        <b style="color:${s.color};margin-left:auto;padding-left:8px">${s.pct.toFixed(0)}%</b>
+      </span>`).join('')}
+    </div>
+  </div>`;
+
+  el.innerHTML=html;
+}
+
+function renderStatsControles() {
+  const el = document.getElementById('statsControles');
+  if(!el) return;
+  const allCtrls = risks.flatMap(r=>r.controls);
+  const total = allCtrls.length;
+  if(!total) { el.innerHTML=''; return; }
+
+  const getScore = c => { const d=c.diseno||1; return d*(d===1?1:(c.ejecucion||1)); };
+  const fuerte  = allCtrls.filter(c=>getScore(c)>=13).length;
+  const satisf  = allCtrls.filter(c=>{ const s=getScore(c); return s>=9&&s<13; }).length;
+  const mejor   = allCtrls.filter(c=>{ const s=getScore(c); return s>=5&&s<9; }).length;
+  const debil   = allCtrls.filter(c=>getScore(c)<5).length;
+
+  // Mitigación breakdown
+  const nFrec  = allCtrls.filter(c=>c.mitiga==='Frecuencia').length;
+  const nImp   = allCtrls.filter(c=>c.mitiga==='Impacto').length;
+  const nAmbos = allCtrls.filter(c=>c.mitiga==='Ambos').length;
+
+  const cards=[
+    {label:'Fuerte',       val:fuerte, bg:'#D4F5E9', col:'#0E7A5A', rng:'13–16'},
+    {label:'Satisfactorio',val:satisf, bg:'#E8F5E9', col:'#2E7D32', rng:'9–12'},
+    {label:'Mejorable',    val:mejor,  bg:'var(--abg)', col:'var(--amber)', rng:'5–8'},
+    {label:'Débil',        val:debil,  bg:'var(--rbg)', col:'var(--red)', rng:'1–4'},
+  ];
+
+  let html = cards.map(c=>`
+    <div style="background:${c.bg};border-radius:10px;padding:12px 18px;min-width:110px;
+      flex:1;border:1px solid rgba(0,0,0,.06)">
+      <div style="font-size:10px;color:${c.col};text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:2px">${c.label}</div>
+      <div style="font-size:9px;color:${c.col};opacity:.6;margin-bottom:4px">Score ${c.rng}</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:28px;color:${c.col};letter-spacing:-1px">${c.val}</div>
+      <div style="font-size:10px;color:${c.col};opacity:.7">${total>0?(c.val/total*100).toFixed(0):'0'}% del total</div>
+    </div>`).join('');
+
+  // Donut mitigación
+  const mitSlices=[
+    {pct:nFrec/total*100,  color:'#1B4FBF', label:'Frecuencia'},
+    {pct:nImp/total*100,   color:'#C47A00', label:'Impacto'},
+    {pct:nAmbos/total*100, color:'#0E7A5A', label:'Ambos'},
+  ].filter(s=>s.pct>0);
+
+  const donutSvg=donutSVG(mitSlices,80).replace('>Mix<',`>${total}<`);
+
+  html += `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;
+    display:flex;align-items:center;gap:12px;flex:1;min-width:220px">
+    ${donutSvg}
+    <div>
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px;font-weight:600">Qué mitigan</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:5px">
+        ${mitSlices.map(s=>`<span style="display:flex;align-items:center;gap:5px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+          <span style="color:var(--muted)">${s.label}</span>
+          <b style="color:${s.color};margin-left:auto;padding-left:8px">${s.pct.toFixed(0)}%</b>
+        </span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  el.innerHTML=html;
+}
+
+function renderHmInh(){
+  const el=document.getElementById('hmInh');
+  const fL=['','Muy baja','Baja','Media','Alta','Muy alta'];
+  const iL=['','Muy bajo','Bajo','Medio','Alto','Muy alto'];
+
+  // Build grid: key → array of risk objects
+  const grid={};
+  risks.forEach(r=>{
+    if(!r.frecuencia) return;
+    const imp=Math.max(r.impFin||0,r.impReg||0,r.impRep||0);
+    if(!imp) return;
+    const k=`${r.frecuencia}_${imp}`;
+    if(!grid[k]) grid[k]=[];
+    grid[k].push(r);
+  });
+
+  const bgCls=(f,i)=>{ const s=f*i; return s>=15?'hm-r':s>=6?'hm-a':'hm-g'; };
+
+  let h='<div style="display:grid;grid-template-columns:70px repeat(5,1fr);gap:4px;font-size:11px">';
+
+  // Header row
+  h+=`<div class="hmc hm-hd" style="font-size:9px;border-radius:5px">Frec ↑<br>Imp →</div>`;
+  for(let i=1;i<=5;i++){
+    h+=`<div class="hmc hm-hd" style="border-radius:5px;flex-direction:column">
+      <span style="font-size:10px;font-weight:700">${i}</span>
+      <span style="font-size:9px;opacity:.7">${iL[i]}</span>
+    </div>`;
+  }
+
+  // Data rows (frecuencia 5→1)
+  for(let f=5;f>=1;f--){
+    h+=`<div class="hmc hm-lb" style="border-radius:5px;flex-direction:column">
+      <span style="font-size:10px;font-weight:700">${f}</span>
+      <span style="font-size:9px">${fL[f]}</span>
+    </div>`;
+    for(let i=1;i<=5;i++){
+      const k=`${f}_${i}`, s=f*i;
+      const rlist=grid[k]||[];
+      const cnt=rlist.length;
+      const cls=bgCls(f,i);
+
+      if(cnt===0){
+        h+=`<div class="hmc ${cls}" style="border-radius:5px;position:relative">
+          <span style="font-size:13px;font-weight:700;opacity:.35">${s}</span>
+        </div>`;
+      } else {
+        // Build tooltip content
+        const tipLines = rlist.map(r=>{
+          const sp = r.subproceso ? r.subproceso.substring(0,40)+(r.subproceso.length>40?'…':'') : '';
+          const ev = r.evento.substring(0,55)+(r.evento.length>55?'…':'');
+          return `• ${ev}`;
+        }).join('\n');
+
+        h+=`<div class="hmc ${cls}" style="border-radius:5px;position:relative;cursor:pointer;
+            padding:6px 4px;flex-direction:column;gap:3px"
+            title="${tipLines.replace(/"/g,'&quot;')}"
+            onclick="showHmDetail(${f},${i})">
+          <span style="font-size:13px;font-weight:700">${s}</span>
+          <span style="font-size:9px;font-weight:600;background:rgba(255,255,255,0.5);
+            border-radius:10px;padding:1px 6px">${cnt} riesgo${cnt>1?'s':''}</span>
+        </div>`;
+      }
+    }
+  }
+  h+='</div>';
+
+  // Legend
+  h+=`<div style="display:flex;gap:20px;margin-top:12px;font-size:11px;flex-wrap:wrap;align-items:center">
+    <span style="color:var(--muted)">Score = Frecuencia × Impacto Final</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#B7E4C7;border-radius:2px;display:inline-block"></span>Bajo (1–5)</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FFE08A;border-radius:2px;display:inline-block"></span>Medio (6–14)</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FFBCBC;border-radius:2px;display:inline-block"></span>Alto (15–25)</span>
+    <span style="color:var(--muted)">· Haz clic en una celda para ver el detalle</span>
+  </div>`;
+
+  el.innerHTML=h;
+}
+
+// Detail panel for heatmap cell click
+function showHmDetail(f,i){
+  const imp=Math.max;
+  const rlist=risks.filter(r=>{
+    if(!r.frecuencia) return false;
+    const ri=Math.max(r.impFin||0,r.impReg||0,r.impRep||0);
+    return r.frecuencia===f && ri===i;
+  });
+  if(!rlist.length) return;
+
+  const s=f*i;
+  const col=s>=15?'var(--red)':s>=6?'var(--amber)':'var(--green)';
+  const bg=s>=15?'var(--rbg)':s>=6?'var(--abg)':'var(--gbg)';
+  const fL=['','Muy baja','Baja','Media','Alta','Muy alta'];
+  const iL=['','Muy bajo','Bajo','Medio','Alto','Muy alto'];
+
+  let html=`<div style="margin-top:14px;border:2px solid ${col};border-radius:8px;overflow:hidden">
+    <div style="background:${bg};padding:10px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-family:'DM Serif Display',serif;font-size:16px;color:${col};font-weight:700">Score ${s}</span>
+      <span style="font-size:12px;color:var(--muted)">Frecuencia ${f} (${fL[f]}) × Impacto ${i} (${iL[i]})</span>
+      <span style="margin-left:auto;font-size:11px;font-weight:600;color:${col}">${rlist.length} evento${rlist.length>1?'s':''}</span>
+    </div>
+    <table class="rt" style="font-size:11.5px">
+      <thead><tr>
+        <th>Área</th><th>Proceso</th><th>Subproceso</th><th>N2</th>
+        <th>Evento de Riesgo</th><th>Frecuencia</th><th>Impacto Final</th>
+      </tr></thead>
+      <tbody>`;
+  rlist.forEach(r=>{
+    const n2html = r.n2Tags&&r.n2Tags.length
+      ? r.n2Tags.map(t=>`<span class="pill pb" style="font-size:9px;margin:1px">${t}</span>`).join('')
+      : '—';
+    const impFinal  = Math.max(r.impFin||0, r.impReg||0, r.impRep||0) || null;
+    const frecLabel = r.frecuencia ? (FREQ_LABELS[r.frecuencia] || r.frecuencia) : '—';
+    const impLabel  = impFinal     ? (IMP_LABELS[impFinal]      || impFinal)     : '—';
+    html+=`<tr>
+      <td style="font-size:11px;white-space:normal;max-width:100px">${r.area||'—'}</td>
+      <td style="font-size:11px;white-space:normal;max-width:140px">${r.proceso||'—'}</td>
+      <td style="font-size:11px;white-space:normal;max-width:130px;color:var(--muted)">${r.subproceso||'—'}</td>
+      <td style="max-width:130px">${n2html}</td>
+      <td style="white-space:normal;line-height:1.4;max-width:270px">${r.evento}</td>
+      <td style="text-align:center;white-space:nowrap">
+        <b>${r.frecuencia||'—'}</b><br>
+        <span style="color:var(--muted);font-size:10px">${frecLabel}</span>
+      </td>
+      <td style="text-align:center;white-space:nowrap">
+        <b>${impFinal||'—'}</b><br>
+        <span style="color:var(--muted);font-size:10px">${impLabel}</span>
+      </td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+
+  // Show or replace detail panel below heatmap
+  let panel=document.getElementById('hmInhDetail');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='hmInhDetail';
+    document.getElementById('hmInh').parentNode.appendChild(panel);
+  }
+  panel.innerHTML=html;
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ═══ RENDER CONTROLES ═══
+function renderControles(){
+  if(!risks.length) return;
+  document.getElementById('emptyState3').style.display='none';
+  document.getElementById('controlesSection').style.display='block';
+  const tbody=document.getElementById('ctrlBody');
+  tbody.innerHTML='';
+  risks.forEach((r,ri)=>{
+    if(!r.controls.length){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td style="max-width:200px;white-space:normal;font-size:11.5px">${r.evento}</td>
+        <td colspan="9" style="color:var(--muted);font-style:italic">Sin controles definidos</td>`;
+      tbody.appendChild(tr); return;
+    }
+    r.controls.forEach((c,ci)=>{
+      const d=c.diseno||1, eReal=d===1?1:(c.ejecucion||1), s=d*eReal;
+      const dOpts=[1,2,3,4].map(v=>`<option value="${v}" ${d==v?'selected':''}>${v}–${DIS_LABELS[v]}</option>`).join('');
+      const eOpts=[1,2,3,4].map(v=>`<option value="${v}" ${eReal==v?'selected':''}>${v}–${DIS_LABELS[v]}</option>`).join('');
+      const mOpts=['Frecuencia','Impacto','Ambos'].map(v=>`<option ${c.mitiga===v?'selected':''}>${v}</option>`).join('');
+      const eCell=ci===0
+        ?`<td style="max-width:180px;white-space:normal;font-size:11.5px">${r.evento}</td>`
+        :`<td style="color:transparent">↳</td>`;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`${eCell}
+        <td style="font-size:10.5px;color:var(--muted)">${c.idControl||'—'}</td>
+        <td style="max-width:160px;white-space:normal;font-size:11.5px">${c.nombre}</td>
+        <td style="font-size:11px;color:var(--muted)">${c.ownerCtrl||'—'}</td>
+        <td><select onchange="updCtrl(${ri},${ci},'diseno',this.value)" style="min-width:100px">${dOpts}</select></td>
+        <td style="text-align:center">${scBox(d,true)}</td>
+        <td><select onchange="updCtrl(${ri},${ci},'ejecucion',this.value)" style="min-width:100px" ${d==1?'disabled':''}>${eOpts}</select></td>
+        <td style="text-align:center">${scBox(eReal,true)}</td>
+        <td style="text-align:center">${scBox(s,true)}</td>
+        <td><span class="pill ${ctrlEffClass(s)}">${ctrlEffLabel(s)}</span></td>
+        <td><select onchange="updCtrl(${ri},${ci},'mitiga',this.value)" style="min-width:90px">${mOpts}</select></td>
+        <td style="font-size:11px;color:var(--muted);max-width:130px;white-space:normal">${c.kciNombre||'—'}</td>`;
+      tbody.appendChild(tr);
+    });
+    // EC summary
+    const avg=ecScore(r), ecl=ecLabel(avg);
+    const sumTr=document.createElement('tr');
+    sumTr.style.background='#F0F4FF';
+    sumTr.innerHTML=`<td colspan="8" style="text-align:right;font-size:11px;font-weight:600;color:var(--navy2);padding:5px 10px">→ Entorno de control (media):</td>
+      <td style="text-align:center">${scBox(avg,true)}</td>
+      <td><span class="pill ${ecClass(avg)}">${ecl}</span></td>
+      <td colspan="2"></td>`;
+    tbody.appendChild(sumTr);
+  });
+  renderStatsControles();
+  renderHmCtrl();
+}
+function updCtrl(ri,ci,f,v){
+  risks[ri].controls[ci][f]=f==='mitiga'?v:parseInt(v);
+  if(f==='diseno'&&parseInt(v)===1) risks[ri].controls[ci].ejecucion=1;
+  renderControles(); renderResultados();
+}
+
+function renderHmCtrl(){
+  const el=document.getElementById('hmCtrl');
+  if(!el) return;
+
+  const DIS_L={4:'Fuerte',3:'Satisfactorio',2:'Mejorable',1:'Débil'};
+  const bgCls=s=>s>=13?'hm-g':s>=9?'hm-g':s>=5?'hm-a':'hm-r';
+
+  // Gather controls grouped by (diseño, ejecucion)
+  const grid={};
+  risks.forEach(r=>{
+    r.controls.forEach(c=>{
+      const d=c.diseno||1;
+      const e=c.ejecucion||1;
+      const k=`${d}_${e}`;
+      if(!grid[k]) grid[k]=[];
+      grid[k].push({ctrl:c, riesgo:r});
+    });
+  });
+
+  const total=risks.flatMap(r=>r.controls).length;
+
+  let h='<div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:4px;font-size:11px">';
+
+  // Header
+  h+=`<div class="hmc hm-hd" style="border-radius:5px;font-size:9px">Dis ↑<br>Ejec →</div>`;
+  for(let e=1;e<=4;e++){
+    h+=`<div class="hmc hm-hd" style="border-radius:5px;flex-direction:column">
+      <span style="font-weight:700;font-size:10px">${e}</span>
+      <span style="font-size:9px;opacity:.7">${DIS_L[e]}</span>
+    </div>`;
+  }
+
+  // Rows
+  for(let d=4;d>=1;d--){
+    h+=`<div class="hmc hm-lb" style="border-radius:5px;flex-direction:column">
+      <span style="font-weight:700;font-size:10px">${d}</span>
+      <span style="font-size:9px">${DIS_L[d]}</span>
+    </div>`;
+    for(let e=1;e<=4;e++){
+      const eR=e;
+      const s=d*eR;
+      const cls=bgCls(s);
+      const k=`${d}_${e}`;
+      const items=grid[k]||[];
+      const cnt=items.length;
+
+      if(cnt===0){
+        h+=`<div class="hmc ${cls}" style="border-radius:5px;min-height:50px">
+          <span style="font-size:13px;font-weight:700;opacity:.35">${s}</span>
+        </div>`;
+      } else {
+        const tip=items.map(({ctrl})=>`• ${ctrl.idControl||''} ${ctrl.nombre}`.trim()).join('\n').replace(/"/g,"'");
+        h+=`<div class="hmc ${cls}" style="border-radius:5px;min-height:50px;flex-direction:column;gap:3px;cursor:pointer;padding:6px 4px"
+            title="${tip}" onclick="showHmCtrlDetail(${d},${e})">
+          <span style="font-size:13px;font-weight:700">${s}</span>
+          <span style="font-size:9px;font-weight:600;background:rgba(255,255,255,.5);border-radius:10px;padding:1px 6px">${cnt} ctrl${cnt>1?'s':''}</span>
+        </div>`;
+      }
+    }
+  }
+  h+='</div>';
+
+  // Legend
+  h+=`<div style="display:flex;gap:16px;margin-top:12px;font-size:11px;flex-wrap:wrap;align-items:center">
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#B7E4C7;border-radius:2px;display:inline-block"></span>Fuerte (13–16)</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#D4F5E9;border-radius:2px;display:inline-block"></span>Satisfactorio (9–12)</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FFE08A;border-radius:2px;display:inline-block"></span>Mejorable (5–8)</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FFBCBC;border-radius:2px;display:inline-block"></span>Débil (1–4)</span>
+    <span style="color:var(--muted);margin-left:auto">${total} controles totales · Clic en celda para ver detalle</span>
+  </div>`;
+
+  el.innerHTML=h;
+}
+
+function showHmCtrlDetail(d,e){
+  const eR=d===1?1:e;
+  const items=[];
+  risks.forEach(r=>{
+    r.controls.forEach(c=>{
+      const cd=c.diseno||1, ce=cd===1?1:(c.ejecucion||1);
+      if(cd===d&&ce===e) items.push({ctrl:c,riesgo:r});
+    });
+  });
+  if(!items.length) return;
+
+  const s=d*eR;
+  const DIS_L={4:'Fuerte',3:'Satisfactorio',2:'Mejorable',1:'Débil'};
+  const col=s>=9?'var(--green)':s>=5?'var(--amber)':'var(--red)';
+  const bg=s>=9?'var(--gbg)':s>=5?'var(--abg)':'var(--rbg)';
+
+  let html=`<div style="margin-top:14px;border:2px solid ${col};border-radius:8px;overflow:hidden">
+    <div style="background:${bg};padding:10px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-family:'DM Serif Display',serif;font-size:16px;color:${col};font-weight:700">Score ${s}</span>
+      <span style="font-size:12px;color:var(--muted)">Diseño ${d} (${DIS_L[d]}) × Ejecución ${e} (${DIS_L[e]})</span>
+      <span style="margin-left:auto;font-size:11px;font-weight:600;color:${col}">${items.length} control${items.length>1?'es':''}</span>
+    </div>
+    <table class="rt" style="font-size:11.5px">
+      <thead><tr>
+        <th>ID</th><th>Control</th><th>Owner</th><th>Evento de Riesgo</th><th>Mitiga</th><th>KCI</th>
+      </tr></thead><tbody>`;
+  items.forEach(({ctrl,riesgo})=>{
+    html+=`<tr>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${ctrl.idControl||'—'}</td>
+      <td style="max-width:200px;white-space:normal;line-height:1.4">${ctrl.nombre}</td>
+      <td style="font-size:11px;color:var(--muted)">${ctrl.ownerCtrl||'—'}</td>
+      <td style="max-width:220px;white-space:normal;line-height:1.4;font-size:11px;color:var(--muted)">${riesgo.evento}</td>
+      <td><span class="pill ${ctrl.mitiga==='Frecuencia'?'pb':ctrl.mitiga==='Impacto'?'pa':'pv'}" style="font-size:10px">${ctrl.mitiga||'—'}</span></td>
+      <td style="font-size:11px;color:var(--muted);max-width:130px;white-space:normal">${ctrl.kciNombre||'—'}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+
+  let panel=document.getElementById('hmCtrlDetail');
+  if(!panel){ panel=document.createElement('div'); panel.id='hmCtrlDetail'; document.getElementById('hmCtrl').parentNode.appendChild(panel); }
+  panel.innerHTML=html;
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ═══ RENDER HEATMAP RESIDUAL (3 × 4) ═══
+function renderHmResidual(){
+  const el=document.getElementById('hmResidualMatrix');
+  if(!el) return;
+
+  // Matriz de transición: Inherente (alto/medio/bajo) × EC (fuerte/satisf/mejor/débil)
+  const TRANS={
+    alto:  {fuerte:'ambar', satisfactorio:'ambar', mejorable:'rojo',  debil:'rojo'},
+    medio: {fuerte:'verde', satisfactorio:'verde', mejorable:'ambar', debil:'rojo'},
+    bajo:  {fuerte:'verde', satisfactorio:'verde', mejorable:'verde', debil:'ambar'},
+  };
+
+  // Clasificar cada riesgo en su celda
+  // Eje X (col): entorno de control = Fuerte(13-16) / Satisfactorio(9-12) / Mejorable(5-8) / Débil(1-4)
+  // Eje Y (fila): rating inherente = Alto(≥15) / Medio(6-14) / Bajo(≤5)
+  const grid={};
+  risks.forEach(r=>{
+    const is=iScore(r);
+    if(!is) return;
+    const ec=ecScore(r);
+    if(ec===null) return;
+    const inhKey = is>=15?'alto': is>=6?'medio':'bajo';
+    const ecKey  = ec>=13?'fuerte': ec>=9?'satisfactorio': ec>=5?'mejorable':'debil';
+    const k=`${inhKey}_${ecKey}`;
+    if(!grid[k]) grid[k]=[];
+    grid[k].push(r);
+  });
+
+  const INH_ROWS=[
+    {key:'alto',  label:'Alto',  range:'15–25', bg:'var(--rbg)', col:'var(--red)'},
+    {key:'medio', label:'Medio', range:'6–14',  bg:'var(--abg)', col:'var(--amber)'},
+    {key:'bajo',  label:'Bajo',  range:'1–5',   bg:'var(--gbg)', col:'var(--green)'},
+  ];
+  const EC_COLS=[
+    {key:'fuerte',        label:'Fuerte',        range:'13–16'},
+    {key:'satisfactorio', label:'Satisfactorio',  range:'9–12'},
+    {key:'mejorable',     label:'Mejorable',      range:'5–8'},
+    {key:'debil',         label:'Débil',          range:'1–4'},
+  ];
+  const CELL_COLOR={
+    verde: {bg:'var(--gbg)', col:'var(--green)', pill:'pv'},
+    ambar: {bg:'var(--abg)', col:'var(--amber)', pill:'pa'},
+    rojo:  {bg:'var(--rbg)', col:'var(--red)',   pill:'pr'},
+  };
+  const RR_LABEL={verde:'Verde', ambar:'Ámbar', rojo:'Rojo'};
+
+  let h=`<div style="display:grid;grid-template-columns:110px repeat(4,1fr);gap:4px;font-size:11px">`;
+
+  // Top-left corner
+  h+=`<div class="hmc hm-hd" style="border-radius:5px;font-size:9px">Inh. ↓<br>EC →</div>`;
+  // Column headers
+  EC_COLS.forEach(ec=>{
+    h+=`<div class="hmc hm-hd" style="border-radius:5px;flex-direction:column;padding:6px 4px">
+      <span style="font-weight:700;font-size:11px">${ec.label}</span>
+      <span style="font-size:9px;opacity:.7">${ec.range}</span>
+    </div>`;
+  });
+
+  // Rows
+  INH_ROWS.forEach(inh=>{
+    // Row header
+    h+=`<div class="hmc hm-lb" style="border-radius:5px;flex-direction:column;padding:6px 8px;border-left:3px solid ${inh.col}">
+      <span style="font-weight:700;font-size:12px;color:${inh.col}">${inh.label}</span>
+      <span style="font-size:9px;color:var(--muted)">${inh.range}</span>
+    </div>`;
+
+    EC_COLS.forEach(ec=>{
+      const k=`${inh.key}_${ec.key}`;
+      const items=grid[k]||[];
+      const cnt=items.length;
+      const residual=TRANS[inh.key][ec.key];
+      const c=CELL_COLOR[residual];
+
+      if(cnt===0){
+        // Empty cell — show expected result faintly
+        h+=`<div class="hmc" style="border-radius:5px;background:${c.bg};opacity:.3;min-height:60px;flex-direction:column">
+          <span style="font-size:11px;font-weight:600;color:${c.col}">${RR_LABEL[residual]}</span>
+        </div>`;
+      } else {
+        const tipLines=items.map(r=>`• ${r.evento.substring(0,55)}${r.evento.length>55?'…':''}`).join('\n').replace(/"/g,"'");
+        const hasAdj=items.some(r=>r.residualFinal&&r.residualFinal!==calcResidual(r));
+        h+=`<div class="hmc" style="border-radius:5px;background:${c.bg};min-height:60px;flex-direction:column;
+            gap:4px;padding:7px 5px;cursor:pointer"
+            title="${tipLines}" onclick="showHmResDetail('${inh.key}','${ec.key}')">
+          <span class="pill ${c.pill}" style="font-size:10px;font-weight:700">${RR_LABEL[residual]}</span>
+          <span style="font-size:9px;font-weight:600;background:rgba(255,255,255,.55);
+            border-radius:10px;padding:1px 7px;color:${c.col}">${cnt} riesgo${cnt>1?'s':''}</span>
+          ${hasAdj?`<span style="font-size:9px;color:${c.col}">⚡adj.</span>`:''}
+        </div>`;
+      }
+    });
+  });
+  h+='</div>';
+
+  // Legend
+  h+=`<div style="display:flex;gap:16px;margin-top:12px;font-size:11px;flex-wrap:wrap;align-items:center">
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--gbg);border-radius:2px;display:inline-block"></span>Verde</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--abg);border-radius:2px;display:inline-block"></span>Ámbar</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--rbg);border-radius:2px;display:inline-block"></span>Rojo</span>
+    <span style="color:var(--muted)">· Celdas tenues = sin riesgos en esa combinación · ⚡ = ajuste experto aplicado</span>
+  </div>`;
+
+  el.innerHTML=h;
+}
+
+function showHmResDetail(inhKey, ecKey){
+  const items=[];
+  risks.forEach(r=>{
+    const is=iScore(r); if(!is) return;
+    const ec=ecScore(r); if(ec===null) return;
+    const ik=is>=15?'alto':is>=6?'medio':'bajo';
+    const eck=ec>=13?'fuerte':ec>=9?'satisfactorio':ec>=5?'mejorable':'debil';
+    if(ik===inhKey&&eck===ecKey) items.push(r);
+  });
+  if(!items.length) return;
+
+  const INH_L={alto:'Alto',medio:'Medio',bajo:'Bajo'};
+  const EC_L={fuerte:'Fuerte',satisfactorio:'Satisfactorio',mejorable:'Mejorable',debil:'Débil'};
+  const TRANS={
+    alto:{fuerte:'ambar',satisfactorio:'ambar',mejorable:'rojo',debil:'rojo'},
+    medio:{fuerte:'verde',satisfactorio:'verde',mejorable:'ambar',debil:'rojo'},
+    bajo:{fuerte:'verde',satisfactorio:'verde',mejorable:'verde',debil:'ambar'},
+  };
+  const res=TRANS[inhKey][ecKey];
+  const col=res==='rojo'?'var(--red)':res==='ambar'?'var(--amber)':'var(--green)';
+  const bg=res==='rojo'?'var(--rbg)':res==='ambar'?'var(--abg)':'var(--gbg)';
+  const RR_LABEL={verde:'Verde',ambar:'Ámbar',rojo:'Rojo'};
+
+  let html=`<div style="margin-top:14px;border:2px solid ${col};border-radius:8px;overflow:hidden">
+    <div style="background:${bg};padding:10px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-family:'DM Serif Display',serif;font-size:15px;color:${col};font-weight:700">
+        R.Inherente ${INH_L[inhKey]} × EC ${EC_L[ecKey]} → <span style="text-transform:capitalize">${RR_LABEL[res]}</span>
+      </span>
+      <span style="margin-left:auto;font-size:11px;font-weight:600;color:${col}">${items.length} evento${items.length>1?'s':''}</span>
+    </div>
+    <table class="rt" style="font-size:11.5px">
+      <thead><tr>
+        <th>Área</th><th>Proceso</th><th>Subproceso</th><th>N2</th>
+        <th>Evento de Riesgo</th>
+        <th>R. Inherente</th><th>Entorno Control</th><th>Residual</th>
+      </tr></thead><tbody>`;
+  items.forEach(r=>{
+    const rCalc=calcResidual(r);
+    const adj=r.residualFinal&&r.residualFinal!==rCalc;
+    const is=iScore(r), ir=iRating(is);
+    const ec=ecScore(r), ecl=ecLabel(ec);
+    const rFinal=r.residualFinal||rCalc;
+    const n2html=r.n2Tags&&r.n2Tags.length
+      ? r.n2Tags.map(t=>`<span class="pill pb" style="font-size:9px;margin:1px">${t}</span>`).join('') : '—';
+    html+=`<tr>
+      <td style="font-size:11px;white-space:normal;max-width:90px">${r.area||'—'}</td>
+      <td style="font-size:11px;white-space:normal;max-width:120px">${r.proceso||'—'}</td>
+      <td style="font-size:11px;white-space:normal;max-width:120px;color:var(--muted)">${r.subproceso||'—'}</td>
+      <td style="max-width:130px">${n2html}</td>
+      <td style="white-space:normal;line-height:1.4;max-width:230px">${r.evento}</td>
+      <td style="text-align:center">${pill(ir)}</td>
+      <td style="text-align:center"><span class="pill ${ecClass(ec)}" style="font-size:11px">${ecl}</span></td>
+      <td style="text-align:center;white-space:nowrap">${pill(rFinal)} ${adj?'<span class="adj">⚡</span>':''}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+
+  let panel=document.getElementById('hmResDetail');
+  if(!panel){panel=document.createElement('div');panel.id='hmResDetail';document.getElementById('hmResidualMatrix').parentNode.appendChild(panel);}
+  panel.innerHTML=html;
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ═══ RENDER RIESGO RESIDUAL (p4) ═══
+function renderResidual(){
+  if(!risks.length) return;
+  document.getElementById('emptyState4r').style.display='none';
+  document.getElementById('residualSection').style.display='block';
+
+  renderHmResidual();
+
+  const total=risks.length;
+  const rojos =risks.filter(r=>getRR(r)==='rojo').length;
+  const ambares=risks.filter(r=>getRR(r)==='ambar').length;
+  const verdes =risks.filter(r=>getRR(r)==='verde').length;
+  const ajustados=risks.filter(r=>r.residualFinal&&r.residualFinal!==calcResidual(r)).length;
+
+  // Stats
+  const cards=[
+    {label:'Rojo',  val:rojos,   bg:'var(--rbg)', col:'var(--red)'},
+    {label:'Ámbar', val:ambares, bg:'var(--abg)', col:'var(--amber)'},
+    {label:'Verde', val:verdes,  bg:'var(--gbg)', col:'var(--green)'},
+  ];
+  if(ajustados) cards.push({label:'⚡ Ajustados',val:ajustados,bg:'#FFF9C4',col:'#7A5100'});
+
+  const ratingSlices=[
+    {pct:rojos/total*100,   color:'#C0392B', label:'Rojo'},
+    {pct:ambares/total*100, color:'#C47A00', label:'Ámbar'},
+    {pct:verdes/total*100,  color:'#0E7A5A', label:'Verde'},
+  ].filter(s=>s.pct>0);
+
+  let statsHtml=cards.map(c=>`
+    <div style="background:${c.bg};border-radius:10px;padding:12px 18px;min-width:110px;flex:1;border:1px solid rgba(0,0,0,.06)">
+      <div style="font-size:10px;color:${c.col};text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:4px">${c.label}</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:28px;color:${c.col};letter-spacing:-1px">${c.val}</div>
+      <div style="font-size:10px;color:${c.col};opacity:.7">${(c.val/total*100).toFixed(0)}%</div>
+    </div>`).join('');
+  statsHtml+=`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;
+    display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+    ${donutSVG(ratingSlices,80)}
+    <div style="font-size:11px;display:flex;flex-direction:column;gap:5px">
+      ${ratingSlices.map(s=>`<span style="display:flex;align-items:center;gap:5px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
+        <span style="color:var(--muted)">${s.label}</span>
+        <b style="color:${s.color};margin-left:auto;padding-left:8px">${s.pct.toFixed(0)}%</b>
+      </span>`).join('')}
+    </div>
+  </div>`;
+  document.getElementById('statsResidual').innerHTML=statsHtml;
+  document.getElementById('resCnt').textContent=total+' eventos';
+
+  // Table
+  const tbody=document.getElementById('residualBody');
+  tbody.innerHTML='';
+  risks.forEach((r,i)=>{
+    const is=iScore(r), ir=iRating(is);
+    const ec=ecScore(r), ecl=ecLabel(ec);
+    const rCalc=calcResidual(r);
+    if(!r.residualFinal) r.residualFinal=rCalc;
+    const adj=r.residualFinal!==rCalc;
+    const n2html=r.n2Tags&&r.n2Tags.length
+      ? r.n2Tags.map(t=>`<span class="pill pb" style="margin:1px;font-size:10px">${t}</span>`).join('')
+      : `<span class="pill pg">${r.riesgoN2||'—'}</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="font-size:11px;max-width:90px;white-space:normal">${r.area||'—'}</td>
+      <td style="font-size:11px;max-width:110px;white-space:normal">${r.proceso||'—'}</td>
+      <td style="font-size:11px;max-width:110px;white-space:normal;color:var(--muted)">${r.subproceso||'—'}</td>
+      <td style="max-width:200px;white-space:normal;line-height:1.4;font-size:11.5px">${r.evento}</td>
+      <td style="max-width:120px">${n2html}</td>
+      <td>${pill(ir)}</td>
+      <td><span class="pill ${ecClass(ec)}" style="font-size:11px">${ecl}</span></td>
+      <td>${pill(rCalc)}</td>
+      <td style="white-space:nowrap">
+        <select onchange="updRes(${i},this.value)" style="min-width:80px">
+          ${['verde','ambar','rojo'].map(v=>`<option value="${v}" ${r.residualFinal===v?'selected':''}>${{verde:'Verde',ambar:'Ámbar',rojo:'Rojo'}[v]}</option>`).join('')}
+        </select>
+        ${adj?`<span class="adj" style="display:block;margin-top:3px">⚡ Ajustado</span>`:''}
+      </td>
+      <td style="min-width:160px">
+        <input type="text" placeholder="Justificación del ajuste…" value="${r.justificacion||''}"
+          onchange="risks[${i}].justificacion=this.value"
+          style="font-size:11px;width:100%;${adj?'border-color:var(--amber)':''}"
+          ${!adj?'disabled':''}>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderResultados(){
+  if(!risks.length) return;
+  document.getElementById('emptyState4').style.display='none';
+  document.getElementById('resultadosSection').style.display='block';
+
+  // ── Heatmap inherente pequeño ──
+  const inhEl=document.getElementById('hmResultInh');
+  if(inhEl){
+    const fL={5:'Muy alta',4:'Alta',3:'Media',2:'Baja',1:'Muy baja'};
+    const iL={5:'Muy alto',4:'Alto',3:'Medio',2:'Bajo',1:'Muy bajo'};
+    const grid={};
+    risks.forEach(r=>{
+      if(!r.frecuencia) return;
+      const imp=Math.max(r.impFin||0,r.impReg||0,r.impRep||0);
+      if(!imp) return;
+      const k=`${r.frecuencia}_${imp}`;
+      if(!grid[k]) grid[k]=[];
+      grid[k].push(r);
+    });
+    let h='<div style="display:grid;grid-template-columns:55px repeat(5,1fr);gap:3px;font-size:10px">';
+    h+=`<div class="hmc hm-hd" style="font-size:8px;border-radius:4px">F↑·I→</div>`;
+    for(let i=1;i<=5;i++) h+=`<div class="hmc hm-hd" style="border-radius:4px;flex-direction:column"><span style="font-weight:700">${i}</span><span style="font-size:8px;opacity:.6">${iL[i].split(' ')[0]}</span></div>`;
+    for(let f=5;f>=1;f--){
+      h+=`<div class="hmc hm-lb" style="border-radius:4px;flex-direction:column"><span style="font-weight:700">${f}</span><span style="font-size:8px">${fL[f].split(' ')[0]}</span></div>`;
+      for(let i=1;i<=5;i++){
+        const k=`${f}_${i}`,s=f*i,cls=s>=15?'hm-r':s>=6?'hm-a':'hm-g',cnt=(grid[k]||[]).length;
+        h+=`<div class="hmc ${cls}" style="border-radius:4px;flex-direction:column;gap:1px;min-height:36px">
+          <span style="font-weight:700;font-size:11px">${s}</span>
+          ${cnt?`<span style="font-size:8px;font-weight:600;background:rgba(255,255,255,.5);border-radius:8px;padding:0 4px">${cnt}r</span>`:''}
+        </div>`;
+      }
+    }
+    h+='</div>';
+    inhEl.innerHTML=h;
+  }
+
+  // ── Heatmap control pequeño ──
+  const ctrlEl=document.getElementById('hmResultCtrl');
+  if(ctrlEl){
+    const DL={4:'Fuerte',3:'Satisf.',2:'Mejor.',1:'Débil'};
+    const grid={};
+    risks.forEach(r=>{
+      r.controls.forEach(c=>{
+        const d=c.diseno||1, e=c.ejecucion||1, k=`${d}_${e}`;
+        if(!grid[k]) grid[k]=0;
+        grid[k]++;
+      });
+    });
+    const bgCls=s=>s>=13?'hm-g':s>=9?'hm-g':s>=5?'hm-a':'hm-r';
+    let h='<div style="display:grid;grid-template-columns:55px repeat(4,1fr);gap:3px;font-size:10px">';
+    h+=`<div class="hmc hm-hd" style="font-size:8px;border-radius:4px">D↑·E→</div>`;
+    for(let e=1;e<=4;e++) h+=`<div class="hmc hm-hd" style="border-radius:4px;flex-direction:column"><span style="font-weight:700">${e}</span><span style="font-size:8px;opacity:.6">${DL[e]}</span></div>`;
+    for(let d=4;d>=1;d--){
+      h+=`<div class="hmc hm-lb" style="border-radius:4px;flex-direction:column"><span style="font-weight:700">${d}</span><span style="font-size:8px">${DL[d]}</span></div>`;
+      for(let e=1;e<=4;e++){
+        const s=d*e,cls=bgCls(s),cnt=grid[`${d}_${e}`]||0;
+        h+=`<div class="hmc ${cls}" style="border-radius:4px;flex-direction:column;gap:1px;min-height:36px">
+          <span style="font-weight:700;font-size:11px">${s}</span>
+          ${cnt?`<span style="font-size:8px;font-weight:600;background:rgba(255,255,255,.5);border-radius:8px;padding:0 4px">${cnt}c</span>`:''}
+        </div>`;
+      }
+    }
+    h+='</div>';
+    ctrlEl.innerHTML=h;
+  }
+
+  // ── Mapa residual grande ──
+  const n2Map={};
+  risks.forEach(r=>{
+    const k=`${r.proceso}||${r.riesgoN2}`;
+    if(!n2Map[k]) n2Map[k]={proceso:r.proceso,n2:r.riesgoN2,events:[]};
+    n2Map[k].events.push(r);
+  });
+  const procs=[...new Set(risks.map(r=>r.proceso))];
+  const n2s=[...new Set(risks.map(r=>r.riesgoN2))];
+  let h=`<table style="border-collapse:collapse;font-size:11.5px;width:100%">`;
+  h+=`<thead><tr><th style="padding:7px 12px;background:var(--navy);color:#fff;text-align:left">Proceso → N2</th>`;
+  n2s.forEach(n2=>h+=`<th style="padding:7px 9px;background:var(--navy);color:#fff;text-align:center;white-space:nowrap;font-size:10.5px">${n2}</th>`);
+  h+=`</tr></thead><tbody>`;
+  procs.forEach(proc=>{
+    h+=`<tr><td style="padding:7px 12px;font-weight:500;border:1px solid var(--border);font-size:11px;max-width:120px;white-space:normal">${proc}</td>`;
+    n2s.forEach(n2=>{
+      const k=`${proc}||${n2}`,grp=n2Map[k];
+      if(!grp){h+=`<td style="padding:6px;border:1px solid var(--border);text-align:center;color:var(--border)">–</td>`;return;}
+      const w=worstRating(grp.events.map(e=>getRR(e)||'verde'));
+      const bg=w==='rojo'?'var(--rbg)':w==='ambar'?'var(--abg)':'var(--gbg)';
+      const col=w==='rojo'?'var(--red)':w==='ambar'?'var(--amber)':'var(--green)';
+      const cnt=grp.events.length;
+      h+=`<td style="padding:6px 9px;border:1px solid var(--border);text-align:center;background:${bg}">
+        <span style="font-weight:700;color:${col};font-size:11px;display:block">${{verde:'Verde',ambar:'Ámbar',rojo:'Rojo'}[w]||'—'}</span>
+        <span style="font-size:9px;color:${col};opacity:.7">${cnt} evento${cnt>1?'s':''}</span>
+      </td>`;
+    });
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table>`;
+  document.getElementById('hmRes').innerHTML=h;
+}
+
+function updRes(i,v){
+  risks[i].residualFinal=v;
+  // Enable/disable justification input
+  renderResidual();
+  renderResultados();
+}
+
+// ═══ THRESHOLDS ═══
+function recalcThresholds(){
+  const mb=parseFloat(document.getElementById('thMB').value)||100000000;
+  const ap=parseFloat(document.getElementById('thApetito').value)||2;
+  const lim=mb*ap/100;
+  document.getElementById('thLimite').textContent=fmt(lim);
+  thresholds.mb=mb; thresholds.apetito=ap;
+  const t=[
+    {nivel:5,label:'Muy alto',min:lim*0.8,max:null},
+    {nivel:4,label:'Alto',    min:lim*0.4,max:lim*0.8},
+    {nivel:3,label:'Medio',   min:lim*0.15,max:lim*0.4},
+    {nivel:2,label:'Bajo',    min:lim*0.03,max:lim*0.15},
+    {nivel:1,label:'Muy bajo',min:0,       max:lim*0.03},
+  ];
+  thresholds.tramos=t;
+  const tbody=document.getElementById('thBody');
+  tbody.innerHTML='';
+  t.forEach(tr=>{
+    const cls=tr.nivel>=4?'pr':tr.nivel===3?'pa':'pv';
+    const row=document.createElement('tr');
+    row.innerHTML=`<td><b>${tr.nivel}</b></td><td><span class="pill ${cls}">${tr.label}</span></td>
+      <td>${fmt(tr.min)}${tr.max!==null?' – '+fmt(tr.max):' +'}</td>`;
+    tbody.appendChild(row);
+  });
+  renderImpScale();
+}
+function renderImpScale(){
+  const tbody=document.getElementById('impScaleBody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+  thresholds.tramos.forEach(tr=>{
+    const cls=tr.nivel>=4?'pr':tr.nivel===3?'pa':'pv';
+    const row=document.createElement('tr');
+    row.innerHTML=`<td><b>${tr.nivel}</b></td><td><span class="pill ${cls}">${tr.label}</span></td>
+      <td>${fmt(tr.min)}${tr.max!==null?' – '+fmt(tr.max):' +'}</td>`;
+    tbody.appendChild(row);
+  });
+}
+function saveThresholds(){ recalcThresholds(); toast('✅ Umbrales financieros aplicados.'); }
+function fmt(v){ return v===null||v===undefined?'—':new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v); }
+
+// ═══ MATRICES ═══
+function renderMatrices(){
+  // Inherente 5×5
+  const inh=document.getElementById('matrizInh');
+  if(inh){
+    const fL={5:'Muy alta',4:'Alta',3:'Media',2:'Baja',1:'Muy baja'};
+    const iL={5:'Muy alto',4:'Alto',3:'Medio',2:'Bajo',1:'Muy bajo'};
+    let h='<div style="display:grid;grid-template-columns:65px repeat(5,1fr);gap:3px;font-size:11px">';
+    h+='<div class="hmc hm-hd" style="font-size:9px">F↑·I→</div>';
+    for(let i=1;i<=5;i++) h+=`<div class="hmc hm-hd">${iL[i]}<br><span style="opacity:.6;font-size:9px">${i}</span></div>`;
+    for(let f=5;f>=1;f--){
+      h+=`<div class="hmc hm-lb">${fL[f]}<br><span style="font-size:9px">${f}</span></div>`;
+      for(let i=1;i<=5;i++){
+        const s=f*i,cls=s>=15?'hm-r':s>=6?'hm-a':'hm-g';
+        h+=`<div class="hmc ${cls}"><span class="hm-fs">${s}</span></div>`;
+      }
+    }
+    h+='</div>';
+    inh.innerHTML=h;
+  }
+  // Control 4×4
+  const ctrl=document.getElementById('matrizCtrl');
+  if(ctrl){
+    const lbl={4:'Fuerte',3:'Satisf.',2:'Mejor.',1:'Débil'};
+    let h='<div style="display:grid;grid-template-columns:75px repeat(4,1fr);gap:3px;font-size:11px">';
+    h+='<div class="hmc hm-hd" style="font-size:9px">Dis↑·Ejec→</div>';
+    for(let e=1;e<=4;e++) h+=`<div class="hmc hm-hd">${lbl[e]}<br><span style="opacity:.6;font-size:9px">${e}</span></div>`;
+    for(let d=4;d>=1;d--){
+      h+=`<div class="hmc hm-lb">${lbl[d]}<br><span style="font-size:9px">${d}</span></div>`;
+      for(let e=1;e<=4;e++){
+        const s=d*e;
+        const cls=s>=13?'hm-g hm-g2':s>=9?'hm-g':s>=5?'hm-a':'hm-r';
+        h+=`<div class="hmc ${cls}">
+          <span class="hm-fs">${s}</span>
+        </div>`;
+      }
+    }
+    h+='</div>';
+    ctrl.innerHTML=h;
+  }
+}
+
+// ═══ COMPARATIVA ═══
+function handleCmpDrop(e,side){ e.preventDefault(); processCmpFile(e.dataTransfer.files[0],side); }
+function handleCmpFile(e,side){ processCmpFile(e.target.files[0],side); e.target.value=''; }
+function processCmpFile(file,side){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const buf=e.target.result;
+    const doWork=()=>{
+      const wb=XLSX.read(buf,{type:'array'});
+      const dsName=wb.SheetNames.find(n=>n.toLowerCase().includes('matriz')||n.toLowerCase().includes('riesgo'))||wb.SheetNames[0];
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[dsName],{header:1,defval:''});
+      // Quick parse for comparison
+      const map=new Map();
+      for(let i=7;i<rows.length;i++){
+        const r=rows[i];
+        const ev=String(r[10]||'').trim(), cn=String(r[42]||'').trim();
+        if(!ev&&!cn) continue;
+        const k=`${String(r[7]||'').trim()}|||${ev}`;
+        if(!map.has(k)) map.set(k,{evento:ev,riesgoN2:'',n2Tags:[],kri:String(r[32]||'').trim(),
+          frecuencia:parseInt(r[34])||null,impFin:parseInt(r[36])||null,
+          impReg:parseInt(r[37])||null,impRep:parseInt(r[38])||null,
+          residualFinal:null,controls:[]});
+        const risk=map.get(k);
+        if(cn){const d=parseInt(r[48])||null,e2=parseInt(r[50])||null,eR=d===1?1:(e2||1);
+          risk.controls.push({nombre:cn,kciNombre:String(r[45]||'').trim(),kciValor:null,diseno:d,ejecucion:eR,mitiga:String(r[46]||'Ambos').trim()});}
+      }
+      const data=Array.from(map.values()).filter(r=>r.evento);
+      setCmpData(side,data,file.name);
+    };
+    if(!window.XLSX){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=doWork;document.head.appendChild(s);}
+    else doWork();
+  };
+  reader.readAsArrayBuffer(file);
+}
+function useCurrent(){ setCmpData('B',JSON.parse(JSON.stringify(risks)),'Datos actuales'); }
+function setCmpData(side,data,name){
+  if(side==='A'){cmpDataA=data;document.getElementById('cmpStatusA').textContent=`✅ ${name} — ${data.length} eventos`;}
+  else{cmpDataB=data;document.getElementById('cmpStatusB').textContent=`✅ ${name} — ${data.length} eventos`;}
+  if(cmpDataA&&cmpDataB) runCompare();
+}
+function runCompare(){
+  document.getElementById('cmpSection').style.display='block';
+  const mapB={};
+  cmpDataB.forEach(r=>{mapB[r.evento]=r;});
+  // Ratings
+  const ratBody=document.getElementById('cmpRatBody'); ratBody.innerHTML='';
+  cmpDataA.forEach(rA=>{
+    const rB=mapB[rA.evento];
+    const bef=rA.residualFinal||calcResidual(rA), aft=rB?(rB.residualFinal||calcResidual(rB)):null;
+    const ord={verde:1,ambar:2,rojo:3};
+    let cambio='—',cls='';
+    if(bef&&aft&&bef!==aft){const w=ord[aft]>ord[bef];cambio=(w?'↑ Empeora':'↓ Mejora')+` (${bef}→${aft})`;cls=w?'style="color:var(--red);font-weight:600"':'style="color:var(--green);font-weight:600"';}
+    else if(bef===aft) cambio='= Sin cambio';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="max-width:200px;white-space:normal;font-size:11.5px">${rA.evento}</td>
+      <td><span class="pill pb" style="font-size:10px">${rA.riesgoN2||'—'}</span></td>
+      <td>${pill(bef)}</td><td>${pill(aft)}</td><td ${cls}>${cambio}</td>`;
+    ratBody.appendChild(tr);
+  });
+  // KRI
+  const kriBody=document.getElementById('cmpKriBody'); kriBody.innerHTML='';
+  cmpDataA.forEach(rA=>{
+    if(!rA.kri) return;
+    const rB=mapB[rA.evento];
+    const vA=rA.kriValor,vB=rB?.kriValor;
+    let diff='—',cls='';
+    if(vA!=null&&vB!=null){const d=vB-vA;diff=(d>0?'+':'')+d.toFixed(2);cls=d>0?'style="color:var(--red);font-weight:600"':'style="color:var(--green);font-weight:600"';}
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="max-width:180px;white-space:normal;font-size:11.5px">${rA.evento}</td>
+      <td>${rA.kri}</td><td>${vA??'—'}</td><td>${vB??'—'}</td><td ${cls}>${diff}</td>`;
+    kriBody.appendChild(tr);
+  });
+  // KCI
+  const kciBody=document.getElementById('cmpKciBody'); kciBody.innerHTML='';
+  cmpDataA.forEach(rA=>{
+    const rB=mapB[rA.evento];
+    rA.controls.forEach((cA,ci)=>{
+      if(!cA.kciNombre) return;
+      const cB=rB?.controls[ci];
+      const vA=cA.kciValor,vB=cB?.kciValor;
+      let diff='—',cls='';
+      if(vA!=null&&vB!=null){const d=vB-vA;diff=(d>0?'+':'')+d.toFixed(2);cls=d>0?'style="color:var(--green);font-weight:600"':'style="color:var(--red);font-weight:600"';}
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td style="max-width:160px;white-space:normal;font-size:11.5px">${rA.evento}</td>
+        <td style="font-size:11.5px">${cA.nombre}</td><td>${cA.kciNombre}</td>
+        <td>${vA??'—'}</td><td>${vB??'—'}</td><td ${cls}>${diff}</td>`;
+      kciBody.appendChild(tr);
+    });
+  });
+}
+function switchCmpTab(t){
+  ['rat','kri','kci'].forEach((x,i)=>{
+    document.getElementById('cmpTab_'+x).style.display=x===t?'block':'none';
+    document.getElementById('ct'+i).classList.toggle('active',x===t);
+  });
+}
+
+// ═══ EXPORT ═══
+function exportExcel(){
+  document.getElementById('expMenu').style.display='none';
+  if(!risks.length){toast('⚠️ Sin datos para exportar.');return;}
+  const doExport=()=>{
+    const N2_NAMES=['Entorno','Estrategia Interna','Estructural','Mercado','Crédito','Liquidez',
+      'Continuidad en Sistemas','Ciberseguridad','Fraude interno','Fraude externo',
+      'Ejecución procesos','Datos','Personas','Legal, fiscal y laboral','Regulatorio',
+      'Seguridad física','Conducta','Indisponibilidad terceros','Incumplimiento SLA','Ataques cadena suministro'];
+    const DL={1:'Débil',2:'Mejorable',3:'Satisfactorio',4:'Fuerte'};
+    const EL=s=>s>=13?'Fuerte':s>=9?'Satisfactorio':s>=5?'Mejorable':'Débil';
+    const ECL=avg=>avg>=13?'Adecuado':avg>=9?'Correcto':avg>=5?'Mejorable':'Deficiente';
+    const rows=[['#','Área de Negocio','','ID Proceso','Proceso','Definición del proceso',
+      'ID Subproceso','Subproceso','Definición del subproceso','Owner del proceso',
+      'Riesgo',...N2_NAMES,'TOTAL','KRI',
+      'Frecuencia','Cuantificación','Impacto','Financiero','Regulatorio','Reputacional',
+      'Riesgo Inherente','Rating',
+      'ID Control','Control','Owner Control','Evidencia','KCI','Mitigación',
+      'Diseño','Cuantificación','Ejecución','Cuantificación','Efect.Control','Rating',
+      'Efect.Entorno','Entorno Rating','R.Inherente(ref)','EC(ref)','Riesgo Residual','Rating']];
+    let n=1;
+    risks.forEach(r=>{
+      const is=iScore(r),ir=iLabel(is),ec=ecScore(r),ecl=ECL(ec),res=getRR(r);
+      const resLbl={verde:'Verde',ambar:'Ámbar',rojo:'Rojo'}[res]||'—';
+      const ctrls=r.controls.length?r.controls:[null];
+      ctrls.forEach((c,ci)=>{
+        const d=c?.diseno||null,e=d===1?1:(c?.ejecucion||null),cs=d&&e?d*e:null;
+        const n2row=N2_NAMES.map(nm=>r.n2Tags&&r.n2Tags.includes(nm)?'X':'');
+        rows.push([n,'','',' ',r.proceso||'','',
+          '',r.subproceso||'','',r.owner||'',r.evento||'',
+          ...n2row,'',r.kri||'',
+          FREQ_LABELS[r.frecuencia]||'',r.frecuencia||'',
+          IMP_LABELS[Math.max(r.impFin||0,r.impReg||0,r.impRep||0)]||'',
+          r.impFin||'',r.impReg||'',r.impRep||'',
+          is||'',ir||'',
+          c?.idControl||'',c?.nombre||'',c?.ownerCtrl||'',c?.evidencia||'',c?.kciNombre||'',c?.mitiga||'',
+          d?DL[d]:'',d||'',e?DL[e]:'',e||'',cs||'',cs?EL(cs):'',
+          ci===0?(ec?ec.toFixed(1):''):'↑',ci===0?ecl:'↑',
+          ci===0?(is||''):'↑',ci===0?(ec?ec.toFixed(1):''):'↑',
+          ci===0?resLbl:'↑',ci===0?resLbl:'↑',
+        ]);
+      });
+      n++;
+    });
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb,'Matriz Riesgos',ws);
+    XLSX.writeFile(wb,'JBCM_RiskEval_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    toast('✅ Excel exportado');
+  };
+  if(!window.XLSX){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=doExport;document.head.appendChild(s);}
+  else doExport();
+}
+
+// Init
+recalcThresholds();
+renderMatrices();
+</script>
+</body>
+</html>
