@@ -239,10 +239,9 @@ input[type=text]:focus{outline:none;border-color:var(--blue2)}
      <div><div class="ei-title">Exportar Excel</div><div class="ei-sub">Mismo formato del archivo importado</div></div>
     </div>
     <div class="exp-sep"></div>
-    <div class="exp-item exp-pend">
+    <div class="exp-item" onclick="exportReport()">
      <span style="font-size:18px">📄</span>
-     <div><div class="ei-title" style="color:var(--muted)">Exportar Informe</div><div class="ei-sub">En definición</div></div>
-     <span class="pend-badge">Pendiente</span>
+     <div><div class="ei-title">Exportar Informe</div><div class="ei-sub">Evaluación de riesgos en HTML</div></div>
     </div>
    </div>
   </div>
@@ -399,6 +398,11 @@ input[type=text]:focus{outline:none;border-color:var(--blue2)}
   <div class="ei">🎯</div><h3>Sin datos</h3><p>Importa el Excel primero.</p>
  </div>
  <div id="resultadosSection" style="display:none">
+  <div id="statsResultados" style="display:flex;gap:12px;margin-bottom:16px;align-items:stretch;flex-wrap:wrap"></div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+   <button class="btn btn-s btn-sm" onclick="toggleExpertAdjustments()">⚡ Ver ajustes expertos</button>
+  </div>
+  <div id="expertAdjustmentsPanel" style="display:none"></div>
   <!-- Dos matrices arriba -->
   <div class="g2" style="margin-bottom:16px;align-items:start">
    <div class="card">
@@ -432,6 +436,7 @@ input[type=text]:focus{outline:none;border-color:var(--blue2)}
    <span>⚠️</span>
    <div>Los umbrales mínimo/máximo y el resultado son <b>datos inventados/provisionales</b>. Deben añadirse como columnas en el Excel para que el cálculo sea real.</div>
   </div>
+  <div id="statsIndicadores" style="display:flex;gap:12px;margin-bottom:16px;align-items:stretch;flex-wrap:wrap"></div>
   <div class="tabs">
    <div class="tab active" onclick="switchIndicTab('kri')" id="indTabKri">KRI</div>
    <div class="tab" onclick="switchIndicTab('kci')" id="indTabKci">KCI</div>
@@ -713,12 +718,12 @@ function nav(n) {
   document.querySelectorAll('.nb').forEach(b => {
     b.classList.toggle('active', b.id === 'nb'+n);
   });
-  if(n===2) renderRiesgos();
-  if(n===3) renderControles();
-  if(n===4) renderResidual();
-  if(n===5) renderResultados();
-  if(n===6) renderIndicadores();
-  if(n===7) { recalcThresholds(); renderMatrices(); }
+  if(n===2) safeRender('riesgos', renderRiesgos);
+  if(n===3) safeRender('controles', renderControles);
+  if(n===4) safeRender('riesgo residual', renderResidual);
+  if(n===5) safeRender('resultados', renderResultados);
+  if(n===6) safeRender('indicadores', renderIndicadores);
+  if(n===7) safeRender('umbrales', ()=>{ recalcThresholds(); renderMatrices(); });
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -737,6 +742,24 @@ function toast(msg, ms=4000) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.display='block';
   clearTimeout(t._t); t._t = setTimeout(()=>t.style.display='none', ms);
+}
+function safeRender(label, fn) {
+  try { fn(); }
+  catch(err) {
+    console.error(label, err);
+    toast(`⚠️ Error al pintar ${label}: ${err.message||err}`, 6500);
+  }
+}
+function refreshDependentViews(skip={}) {
+  if(!skip.riesgos) safeRender('riesgos', renderRiesgos);
+  if(!skip.controles) safeRender('controles', renderControles);
+  if(!skip.residual) safeRender('riesgo residual', renderResidual);
+  if(!skip.resultados) safeRender('resultados', renderResultados);
+  if(!skip.indicadores) safeRender('indicadores', renderIndicadores);
+}
+function syncResidualAfterInputChange(r, wasAdjusted=false) {
+  if(!r || wasAdjusted) return;
+  r.residualFinal = calcResidual(r);
 }
 
 // ═══ CALCS ═══
@@ -786,6 +809,16 @@ function worstRating(arr) {
   return arr.length?'verde':null;
 }
 function getRR(r) { return r.residualFinal||calcResidual(r); }
+function isExpertAdjusted(r) {
+  const calc=calcResidual(r);
+  return !!(r&&r.residualFinal&&calc&&r.residualFinal!==calc);
+}
+function expertMark(r, label='') {
+  return isExpertAdjusted(r) ? `<span class="adj" title="Ajuste experto">⚡${label}</span>` : '';
+}
+function anyExpertAdjusted(items) {
+  return (items||[]).some(isExpertAdjusted);
+}
 function ratingRank(r) { return r==='rojo'?3:r==='ambar'?2:r==='verde'?1:0; }
 function ratingLabel(r) { return ({verde:'Verde',ambar:'Ámbar',rojo:'Rojo'})[r]||'—'; }
 function escHtml(v) {
@@ -806,6 +839,29 @@ function scBox(s, invert) {
   const val = typeof s==='number'&&s%1!==0 ? s.toFixed(1) : s;
   return `<span class="sc ${cls}">${val}</span>`;
 }
+function normTxt(v) {
+  return String(v??'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function parseScaleValue(raw, type='risk') {
+  if(raw===null||raw===undefined||raw==='') return null;
+  if(typeof raw==='number') return raw || null;
+  const txt=normTxt(raw);
+  const direct=txt.match(/\b([1-5])\b/);
+  if(direct) return parseInt(direct[1])||null;
+  if(type==='control') {
+    if(txt.includes('fuerte')) return 4;
+    if(txt.includes('satisf')) return 3;
+    if(txt.includes('mejor')) return 2;
+    if(txt.includes('debil')||txt.includes('defic')) return 1;
+  } else {
+    if(txt.includes('muy alta')||txt.includes('muy alto')) return 5;
+    if(txt.includes('alta')||txt.includes('alto')) return 4;
+    if(txt.includes('media')||txt.includes('medio')) return 3;
+    if(txt.includes('baja')||txt.includes('bajo')) return 2;
+    if(txt.includes('muy baja')||txt.includes('muy bajo')) return 1;
+  }
+  return null;
+}
 
 // ═══ FILE HANDLING ═══
 function handleFile(e) { processFile(e.target.files[0]); e.target.value=''; }
@@ -823,7 +879,7 @@ function processFile(file) {
       recalcThresholds();
     }
     originalDataSheetName = wb.SheetNames.find(n=>n.toLowerCase().includes('matriz')||n.toLowerCase().includes('riesgo'))||wb.SheetNames[0];
-    parseExcel(XLSX.utils.sheet_to_json(wb.Sheets[originalDataSheetName],{header:1,defval:''}));
+    parseExcel(sheetRowsWithMergedCells(wb.Sheets[originalDataSheetName]));
   };
   const reader = new FileReader();
   reader.onload = e2 => {
@@ -838,6 +894,23 @@ function processFile(file) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+function sheetRowsWithMergedCells(ws) {
+  const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+  (ws['!merges']||[]).forEach(m=>{
+    const src = rows[m.s.r]?.[m.s.c];
+    if(src===undefined||src===null||src==='') return;
+    const isHeaderMerge = m.s.r < 15;
+    for(let r=m.s.r;r<=m.e.r;r++) {
+      if(!rows[r]) rows[r]=[];
+      for(let c=m.s.c;c<=m.e.c;c++) {
+        if(!isHeaderMerge && c!==m.s.c) continue;
+        if(rows[r][c]===undefined||rows[r][c]===null||rows[r][c]==='') rows[r][c]=src;
+      }
+    }
+  });
+  return rows;
 }
 
 function readParamsSheet(ws, shouldRecalc=true) {
@@ -893,58 +966,93 @@ function parseExcel(rows) {
   }
   if(headerIdx === -1) { toast('⚠️ No se encontró cabecera. Verifica el formato del Excel.'); return; }
 
-  // 2. Mapear índices exactos leyendo la cabecera
-  const hdr = rows[headerIdx].map(v =>
-    String(v||'').trim().toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-  );
+  // 2. Mapear índices leyendo varias filas de cabecera, porque Excel suele traer
+  // grupos combinados y subcabeceras en filas distintas.
+  const maxCols = Math.max(...rows.slice(Math.max(0,headerIdx-2), headerIdx+3).map(r=>r.length));
+  const headerRows = [headerIdx-2, headerIdx-1, headerIdx, headerIdx+1]
+    .filter(i=>i>=0&&i<rows.length);
+  const hdr = Array.from({length:maxCols},(_,c)=>{
+    const parts=[];
+    headerRows.forEach(rIdx=>{
+      const v=normTxt(rows[rIdx]?.[c]);
+      if(v && !parts.includes(v)) parts.push(v);
+    });
+    return parts.join(' ');
+  });
 
   // Función búsqueda exacta (sin acentos)
-  const exact  = t  => hdr.findIndex(h => h === t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
+  const exact  = t  => hdr.findIndex(h => h === normTxt(t));
+  const contains = t => hdr.findIndex(h => h.includes(normTxt(t)));
+  const exactOrContains = t => {
+    const idx=exact(t);
+    return idx!==-1 ? idx : contains(t);
+  };
   // Búsqueda por contenido después de un índice dado
-  const after  = (from, t) => hdr.findIndex((h,i) => i > from && h.includes(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+  const after  = (from, t) => hdr.findIndex((h,i) => i > from && h.includes(normTxt(t)));
 
   // Columnas ancla — nombres únicos en la cabecera
-  const iArea      = exact('area de negocio');
+  const iArea      = exactOrContains('area de negocio')!==-1 ? exactOrContains('area de negocio') : contains('area');
   const iProceso   = exact('proceso');
   const iSubproceso= exact('subproceso');
-  const iOwner     = exact('owner del proceso');
-  const iRiesgo    = hdr.findIndex(h => h.startsWith('riesgo') && h.includes('detalle'));
-  const iKRI       = exact('kri');
-  const iFinanciero= exact('financiero');
-  const iRep       = exact('reputacional');
-  const iCtrlId    = exact('id control');
-  const iCtrlNom   = exact('control');
-  const iCtrlOwner = exact('owner de control');
+  const iOwner     = exactOrContains('owner del proceso');
+  const iRiesgo    = hdr.findIndex(h => h.includes('riesgo') && (h.includes('detalle')||h.includes('evento')||h.includes('especific')));
+  const iKRI       = exactOrContains('kri');
+  const iFinanciero= exactOrContains('financiero');
+  const iRep       = exactOrContains('reputacional');
+  const iCtrlId    = exactOrContains('id control');
+  const iCtrlNomExact = exact('control');
+  const iCtrlNom   = iCtrlNomExact !== -1 ? iCtrlNomExact : hdr.findIndex((h,i) =>
+    (iCtrlId===-1 || i > iCtrlId) && h.includes('control') && !h.includes('owner') && !h.includes('id') && !h.includes('entorno')
+  );
+  const iCtrlOwner = exactOrContains('owner de control');
   const iEvidencia = hdr.findIndex(h => h.includes('evidencia'));
-  const iKCI       = exact('kci');
+  const iKCI       = exactOrContains('kci');
   const iMitiga    = hdr.findIndex(h => h.includes('mitiga'));
 
   // Frecuencia: label en col "Frecuencia", número en la siguiente "Cuantificación"
-  const iFrecLabel = exact('frecuencia');
+  const iFrecLabel = exactOrContains('frecuencia');
   const iFrecNum   = iFrecLabel !== -1 ? iFrecLabel + 1 : -1;  // AI = AH+1
 
   // Impacto: label en "Impacto", luego Financiero, Regulatorio (después de Financiero), Reputacional
-  const iImpLabel  = exact('impacto');
+  const iImpLabel  = exactOrContains('impacto');
   // Regulatorio del impacto: viene justo después de Financiero (evita el N2 Regulatorio)
   const iRegImp    = iFinanciero !== -1 ? iFinanciero + 1 : -1;  // AL = AK+1
 
   // Diseño: label en "Diseño", número en la siguiente "Cuantificación"
-  const iDisLabel  = exact('diseno');
+  const iDisLabel  = exactOrContains('diseno');
   const iDisNum    = iDisLabel !== -1 ? iDisLabel + 1 : -1;     // AW = AV+1
 
   // Ejecución: label en "Ejecucion", número en la siguiente "Cuantificación"
-  const iEjecLabel = exact('ejecucion');
+  const iEjecLabel = after(iDisLabel!==-1?iDisLabel:iCtrlNom,'ejecucion')!==-1
+    ? after(iDisLabel!==-1?iDisLabel:iCtrlNom,'ejecucion')
+    : exactOrContains('ejecucion');
   const iEjecNum   = iEjecLabel !== -1 ? iEjecLabel + 1 : -1;   // AY = AX+1
 
+  const dataStartPreview = headerIdx + 1;
+  const bestScaleColumn = (candidates, type='risk') => {
+    let best=-1, bestCount=-1;
+    [...new Set(candidates.filter(c=>c!==-1&&c!==undefined&&c!==null&&c>=0))].forEach(c=>{
+      let count=0;
+      for(let r=dataStartPreview;r<Math.min(rows.length,dataStartPreview+40);r++) {
+        if(parseScaleValue(rows[r]?.[c],type)!==null) count++;
+      }
+      if(count>bestCount) { best=c; bestCount=count; }
+    });
+    return best;
+  };
+  const frecCol = bestScaleColumn([iFrecNum,iFrecLabel,iFrecLabel+1,iFrecLabel+2],'risk');
+  const disCol = bestScaleColumn([48,iDisNum,iDisLabel+1,iDisLabel+2,iDisLabel],'control');
+  const ejecCol = bestScaleColumn([50,iEjecNum,iEjecLabel+1,iEjecLabel+2,iEjecLabel],'control');
+
+  const col = (idx, fallback) => idx !== -1 ? idx : fallback;
   const C = {
-    area: iArea, proceso: iProceso, subproceso: iSubproceso,
-    owner: iOwner, riesgo: iRiesgo, kri: iKRI,
-    frecNum: iFrecNum,
-    impFin: iFinanciero, impReg: iRegImp, impRep: iRep,
-    ctrlId: iCtrlId, ctrlNom: iCtrlNom, ctrlOwner: iCtrlOwner,
-    evidencia: iEvidencia, kci: iKCI, mitiga: iMitiga,
-    disNum: iDisNum, ejNum: iEjecNum,
+    area: col(iArea,4), proceso: col(iProceso,5), subproceso: col(iSubproceso,7),
+    owner: col(iOwner,8), riesgo: col(iRiesgo,10), kri: col(iKRI,32),
+    frecNum: col(frecCol,34),
+    impFin: col(iFinanciero,36), impReg: col(iRegImp,37), impRep: col(iRep,38),
+    ctrlId: col(iCtrlId,41), ctrlNom: col(iCtrlNom,42), ctrlOwner: col(iCtrlOwner,43),
+    evidencia: col(iEvidencia,44), kci: col(iKCI,45), mitiga: col(iMitiga,46),
+    disNum: col(disCol,48), ejNum: col(ejecCol,50),
   };
   sourceMeta = { sheetName: originalDataSheetName, headerIdx, C };
 
@@ -961,16 +1069,26 @@ function parseExcel(rows) {
   // 3. Parsear filas de datos
   const riskMap = new Map();
   const dataStart = headerIdx + 1;
+  let lastRisk = null;
 
   for(let i = dataStart; i < rows.length; i++) {
     const r = rows[i];
     if(!r || r.every(v => !v || String(v).trim() === '')) continue;
 
     const g  = idx => idx !== -1 && idx < r.length ? String(r[idx]||'').trim() : '';
-    const gi = idx => idx !== -1 && idx < r.length ? (parseInt(r[idx])||null) : null;
+    const gi = (idx,type='risk') => idx !== -1 && idx < r.length ? parseScaleValue(r[idx],type) : null;
+    const firstScaleInRange = (start,end,type='control',exclude=[]) => {
+      const blocked=new Set(exclude.filter(x=>x!==undefined&&x!==null));
+      for(let c=start;c<=end;c++) {
+        if(blocked.has(c)) continue;
+        const v=gi(c,type);
+        if(v!==null) return v;
+      }
+      return null;
+    };
 
     const evento  = g(C.riesgo);
-    const ctrlNom = g(C.ctrlNom);
+    const ctrlNom = g(C.ctrlNom) || g(C.ctrlId);
     if(!evento && !ctrlNom) continue;
 
     const area       = g(C.area);
@@ -978,7 +1096,7 @@ function parseExcel(rows) {
     const subproceso = g(C.subproceso);
     const owner      = g(C.owner);
     const kri        = g(C.kri);
-    const frecuencia = gi(C.frecNum);
+    const frecuencia = gi(C.frecNum) || gi(iFrecLabel);
     const impFin     = gi(C.impFin);
     const impReg     = gi(C.impReg);
     const impRep     = gi(C.impRep);
@@ -989,17 +1107,25 @@ function parseExcel(rows) {
       if(v && String(v).trim() !== '' && String(v).trim() !== '0' && v !== 0) n2Tags.push(name);
     }
 
-    const riskKey = `${subproceso}|||${evento}`;
-    if(!riskMap.has(riskKey)) {
-      riskMap.set(riskKey, {
-        area, proceso, subproceso, owner, evento,
-        riesgoN2: n2Tags.join(' · '), n2Tags,
-        kri, frecuencia, impFin, impReg, impRep,
-        residualFinal: null, justificacion: '',
-        controls: [], _rowIndex: i
-      });
+    let risk = null;
+    if(evento) {
+      const riskKey = `${subproceso}|||${evento}`;
+      if(!riskMap.has(riskKey)) {
+        riskMap.set(riskKey, {
+          area, proceso, subproceso, owner, evento,
+          riesgoN2: n2Tags.join(' · '), n2Tags,
+          kri, frecuencia, impFin, impReg, impRep,
+          residualFinal: null, justificacion: '',
+          controls: [], _rowIndex: i
+        });
+      }
+      risk = riskMap.get(riskKey);
+      lastRisk = risk;
+    } else if(ctrlNom && lastRisk) {
+      risk = lastRisk;
+    } else {
+      continue;
     }
-    const risk = riskMap.get(riskKey);
     // Actualizar campos si vienen en esta fila (se repiten)
     if(area)       risk.area       = area;
     if(proceso)    risk.proceso    = proceso;
@@ -1013,8 +1139,8 @@ function parseExcel(rows) {
     if(n2Tags.length) { risk.n2Tags = n2Tags; risk.riesgoN2 = n2Tags.join(' · '); }
 
     if(ctrlNom) {
-      const d = gi(C.disNum);
-      const e = gi(C.ejNum);
+      const d = gi(48,'control') || gi(C.disNum,'control') || firstScaleInRange(47,49,'control');
+      const e = gi(50,'control') || gi(C.ejNum,'control') || firstScaleInRange(49,52,'control',[48,C.disNum]);
       risk.controls.push({
         idControl: g(C.ctrlId),
         nombre:    ctrlNom,
@@ -1042,8 +1168,11 @@ function parseExcel(rows) {
   document.getElementById('btnImport').textContent = `✓ ${risks.length} eventos`;
   document.getElementById('btnImport').classList.add('loaded');
 
-  renderTabla();
-  renderResidual();
+  safeRender('tabla de datos', renderTabla);
+  safeRender('controles', renderControles);
+  safeRender('riesgo residual', renderResidual);
+  safeRender('resultados', renderResultados);
+  safeRender('indicadores', renderIndicadores);
   nav(1);
 }
 
@@ -1209,11 +1338,17 @@ function renderTabla() {
 }
 
 function updR(rIdx, field, val) {
+  const wasAdjusted=isExpertAdjusted(risks[rIdx]);
   risks[rIdx][field] = (field==='frecuencia'||field==='impFin'||field==='impReg'||field==='impRep') ? parseInt(val)||null : val;
+  syncResidualAfterInputChange(risks[rIdx], wasAdjusted);
+  refreshDependentViews({riesgos:true});
 }
 function updC(rIdx, cIdx, field, val) {
+  const wasAdjusted=isExpertAdjusted(risks[rIdx]);
   risks[rIdx].controls[cIdx][field] = (field==='diseno'||field==='ejecucion') ? parseInt(val)||null : val;
   if(field==='diseno' && parseInt(val)===1) risks[rIdx].controls[cIdx].ejecucion = 1;
+  syncResidualAfterInputChange(risks[rIdx], wasAdjusted);
+  refreshDependentViews({controles:true});
 }
 function refreshTablaRow(rIdx) {
   // Re-render just the calculated cells for this risk without full re-render
@@ -1256,8 +1391,20 @@ function renderRiesgos() {
   renderStatsRiesgos();
   renderHmInh();
 }
-function updF(i,v){risks[i].frecuencia=parseInt(v);renderRiesgos();renderResultados();}
-function updI(i,f,v){risks[i][f]=parseInt(v);renderRiesgos();renderResultados();}
+function updF(i,v){
+  const wasAdjusted=isExpertAdjusted(risks[i]);
+  risks[i].frecuencia=parseInt(v);
+  syncResidualAfterInputChange(risks[i], wasAdjusted);
+  renderRiesgos();
+  refreshDependentViews({riesgos:true});
+}
+function updI(i,f,v){
+  const wasAdjusted=isExpertAdjusted(risks[i]);
+  risks[i][f]=parseInt(v);
+  syncResidualAfterInputChange(risks[i], wasAdjusted);
+  renderRiesgos();
+  refreshDependentViews({riesgos:true});
+}
 
 // ── Stats bar helpers ──
 function donutSVG(slices, size=80) {
@@ -1596,9 +1743,12 @@ function renderControles(){
   renderHmCtrl();
 }
 function updCtrl(ri,ci,f,v){
+  const wasAdjusted=isExpertAdjusted(risks[ri]);
   risks[ri].controls[ci][f]=f==='mitiga'?v:parseInt(v);
   if(f==='diseno'&&parseInt(v)===1) risks[ri].controls[ci].ejecucion=1;
-  renderControles(); renderResultados();
+  syncResidualAfterInputChange(risks[ri], wasAdjusted);
+  renderControles();
+  refreshDependentViews({controles:true});
 }
 
 function renderHmCtrl(){
@@ -1799,7 +1949,7 @@ function renderHmResidual(){
         </div>`;
       } else {
         const tipLines=items.map(r=>`• ${r.evento.substring(0,55)}${r.evento.length>55?'…':''}`).join('\n').replace(/"/g,"'");
-        const hasAdj=items.some(r=>r.residualFinal&&r.residualFinal!==calcResidual(r));
+        const hasAdj=anyExpertAdjusted(items);
         h+=`<div class="hmc" style="border-radius:5px;background:${c.bg};min-height:60px;flex-direction:column;
             gap:4px;padding:7px 5px;cursor:pointer"
             title="${tipLines}" onclick="showHmResDetail('${inh.key}','${ec.key}')">
@@ -1858,11 +2008,11 @@ function showHmResDetail(inhKey, ecKey){
       <thead><tr>
         <th>Área</th><th>Proceso</th><th>Subproceso</th><th>N2</th>
         <th>Riesgo específico</th>
-        <th>R. Inherente</th><th>Entorno Control</th><th>Residual</th>
+        <th>R. Inherente</th><th>Entorno Control</th><th>Residual</th><th>Justificación</th>
       </tr></thead><tbody>`;
   items.forEach(r=>{
     const rCalc=calcResidual(r);
-    const adj=r.residualFinal&&r.residualFinal!==rCalc;
+    const adj=isExpertAdjusted(r);
     const is=iScore(r), ir=iRating(is);
     const ec=ecScore(r), ecl=ecLabel(ec);
     const rFinal=r.residualFinal||rCalc;
@@ -1877,6 +2027,7 @@ function showHmResDetail(inhKey, ecKey){
       <td style="text-align:center">${pill(ir)}</td>
       <td style="text-align:center"><span class="pill ${ecClass(ec)}" style="font-size:11px">${ecl}</span></td>
       <td style="text-align:center;white-space:nowrap">${pill(rFinal)} ${adj?'<span class="adj">⚡</span>':''}</td>
+      <td style="white-space:normal;max-width:220px;color:var(--muted);font-size:11px">${adj?escHtml(r.justificacion||'Sin justificación'):'—'}</td>
     </tr>`;
   });
   html+=`</tbody></table></div>`;
@@ -1899,10 +2050,11 @@ function renderResidual(){
   const rojos =risks.filter(r=>getRR(r)==='rojo').length;
   const ambares=risks.filter(r=>getRR(r)==='ambar').length;
   const verdes =risks.filter(r=>getRR(r)==='verde').length;
-  const ajustados=risks.filter(r=>r.residualFinal&&r.residualFinal!==calcResidual(r)).length;
+  const ajustados=risks.filter(isExpertAdjusted).length;
 
   // Stats
   const cards=[
+    {label:'Total eventos',  val:total,   bg:'#fff', col:'var(--navy)'},
     {label:'Rojo',  val:rojos,   bg:'var(--rbg)', col:'var(--red)'},
     {label:'Ámbar', val:ambares, bg:'var(--abg)', col:'var(--amber)'},
     {label:'Verde', val:verdes,  bg:'var(--gbg)', col:'var(--green)'},
@@ -1943,7 +2095,7 @@ function renderResidual(){
     const ec=ecScore(r), ecl=ecLabel(ec);
     const rCalc=calcResidual(r);
     if(!r.residualFinal) r.residualFinal=rCalc;
-    const adj=r.residualFinal!==rCalc;
+    const adj=isExpertAdjusted(r);
     const n2html=r.n2Tags&&r.n2Tags.length
       ? r.n2Tags.map(t=>`<span class="pill pb" style="margin:1px;font-size:10px">${t}</span>`).join('')
       : `<span class="pill pg">${r.riesgoN2||'—'}</span>`;
@@ -1965,7 +2117,7 @@ function renderResidual(){
       </td>
       <td style="min-width:160px">
         <input type="text" placeholder="Justificación del ajuste…" value="${r.justificacion||''}"
-          onchange="risks[${i}].justificacion=this.value"
+          onchange="updJustificacion(${i},this.value)"
           style="font-size:11px;width:100%;${adj?'border-color:var(--amber)':''}"
           ${!adj?'disabled':''}>
       </td>`;
@@ -1994,7 +2146,7 @@ function aggregateWorstBySubprocess(events) {
   const subprocesos=Object.values(subMap);
   const rating=worstRating(subprocesos.map(sp=>sp.rating).filter(Boolean));
   const worstSubprocess=subprocesos.find(sp=>sp.rating===rating)||null;
-  return {rating, subprocesos, worstSubprocess, eventCount:events.length};
+  return {rating, subprocesos, worstSubprocess, eventCount:events.length, events};
 }
 function buildProcessN2MatrixData() {
   const procMap={}, n2Map={}, cellMap={};
@@ -2065,6 +2217,66 @@ function renderResultThresholdMatrix() {
   h+=`</tbody></table></div></div>`;
   return h;
 }
+function renderResultsStats(matrix) {
+  const el=document.getElementById('statsResultados');
+  if(!el) return;
+  const procCount=matrix.procesos.length;
+  const n2Count=matrix.n2s.length;
+  const adjusted=risks.filter(isExpertAdjusted).length;
+  const finalRatings=Object.entries(matrix.cellAgg).map(([key,agg])=>{
+    const [proc,n2]=key.split('||');
+    const procRating=matrix.processAgg[proc]?.rating;
+    const n2Rating=matrix.n2Agg[n2]?.rating;
+    return resultThresholdRating(procRating,n2Rating)||agg.rating;
+  }).filter(Boolean);
+  const rojos=finalRatings.filter(r=>r==='rojo').length;
+  const ambares=finalRatings.filter(r=>r==='ambar').length;
+  const verdes=finalRatings.filter(r=>r==='verde').length;
+  const cards=[
+    {label:'Procesos',val:procCount,bg:'#fff',col:'var(--navy)',sub:'filas de la matriz'},
+    {label:'N2',val:n2Count,bg:'#fff',col:'var(--navy)',sub:'columnas de la matriz'},
+    {label:'Rojo / Ámbar / Verde',val:`${rojos}/${ambares}/${verdes}`,bg:'var(--bg)',col:'var(--navy)',sub:'cruces con dato'},
+    {label:'Ajustes expertos',val:adjusted,bg:adjusted?'#FFF9C4':'#fff',col:adjusted?'#7A5100':'var(--navy)',sub:'riesgos específicos'}
+  ];
+  el.innerHTML=cards.map(c=>`<div class="stat" style="flex:1;min-width:150px;background:${c.bg}">
+    <div class="lbl" style="color:${c.col}">${c.label}</div>
+    <div class="val" style="color:${c.col}">${c.val}</div>
+    <div class="sub">${c.sub}</div>
+  </div>`).join('');
+}
+function renderExpertAdjustmentsPanel() {
+  const panel=document.getElementById('expertAdjustmentsPanel');
+  if(!panel) return;
+  const adjusted=risks.filter(isExpertAdjusted);
+  if(!adjusted.length) {
+    panel.innerHTML=`<div class="alert alert-i"><span>⚡</span><div>No hay ajustes expertos aplicados.</div></div>`;
+    return;
+  }
+  const rows=adjusted.map(r=>{
+    const before=calcResidual(r), after=getRR(r);
+    return `<tr>
+      <td style="white-space:normal;max-width:150px">${escHtml(r.proceso||'—')}</td>
+      <td style="white-space:normal;max-width:140px">${escHtml(r.subproceso||'—')}</td>
+      <td style="white-space:normal;max-width:240px">${escHtml(r.evento||'—')}</td>
+      <td style="text-align:center">${pill(before)}</td>
+      <td style="text-align:center">${pill(after)} ${expertMark(r)}</td>
+      <td style="white-space:normal;max-width:260px;color:var(--muted)">${escHtml(r.justificacion||'Sin justificación')}</td>
+    </tr>`;
+  }).join('');
+  panel.innerHTML=`<div class="card">
+    <div class="card-hd"><div class="ct">Ajustes expertos</div><span class="badge bw">${adjusted.length}</span></div>
+    <div class="tscroll"><table class="rt">
+      <thead><tr><th>Proceso</th><th>Subproceso</th><th>Riesgo específico</th><th>Antes</th><th>Después</th><th>Justificación</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+function toggleExpertAdjustments() {
+  const panel=document.getElementById('expertAdjustmentsPanel');
+  if(!panel) return;
+  renderExpertAdjustmentsPanel();
+  panel.style.display=panel.style.display==='none'?'block':'none';
+}
 function resultN2Html(r) {
   const n2s=n2ListForRisk(r);
   return n2s.length
@@ -2076,21 +2288,37 @@ function renderResultControlRows(r) {
     return `<div style="padding:10px 12px;color:var(--muted);font-size:11px;background:#fff">Sin controles asociados</div>`;
   }
   const controls=r.controls.map(c=>{
-    const s=ctrlScore(c);
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-top:1px solid var(--border);background:#fff">
-      <span style="font-size:11px;color:var(--navy);flex:1;white-space:normal;line-height:1.35"><b>Control:</b> ${escHtml(c.nombre||c.idControl||'—')}</span>
-      <span class="pill ${ctrlEffClass(s)}" style="font-size:10px">${ctrlEffLabel(s)}</span>
-    </div>`;
+    const d=c.diseno??null;
+    const e=d===1?1:(c.ejecucion??null);
+    const s=(d!==null&&e!==null)?d*e:null;
+    return `<tr>
+      <td style="font-size:10.5px;color:var(--muted);white-space:nowrap">${escHtml(c.idControl||'—')}</td>
+      <td style="font-size:11px;color:var(--navy);white-space:normal;line-height:1.35;max-width:260px">${escHtml(c.nombre||'—')}</td>
+      <td style="text-align:center">${d??'—'}</td>
+      <td style="text-align:center">${e??'—'}</td>
+      <td style="text-align:center">${s!==null?scBox(s,true):'<span class="sc">—</span>'}</td>
+      <td style="text-align:center">${s!==null?`<span class="pill ${ctrlEffClass(s)}" style="font-size:10px">${ctrlEffLabel(s)}</span>`:'—'}</td>
+      <td style="font-size:10.5px;color:var(--muted);white-space:normal;max-width:150px">${escHtml(c.mitiga||'—')}</td>
+      <td style="font-size:10.5px;color:var(--muted);white-space:normal;max-width:170px">${escHtml(c.kciNombre||'—')}</td>
+    </tr>`;
   }).join('');
-  return `<div style="border:1px solid var(--border);border-radius:7px;overflow:hidden">${controls}</div>`;
+  return `<div style="border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#fff">
+    <table class="rt" style="font-size:11px;margin:0">
+      <thead><tr>
+        <th>ID</th><th>Control</th><th>Diseño</th><th>Ejecución</th><th>Nota</th><th>Efectividad</th><th>Mitiga</th><th>KCI</th>
+      </tr></thead>
+      <tbody>${controls}</tbody>
+    </table>
+  </div>`;
 }
 function renderResultRiskDetails(r) {
   const rr=getRR(r), is=iScore(r), ec=ecScore(r);
+  const adjusted=isExpertAdjusted(r);
   return `<details style="border:1px solid var(--border);border-radius:7px;margin-top:7px;background:#fff;overflow:hidden">
     <summary style="cursor:pointer;padding:9px 11px;background:#fff">
       <span style="display:flex;align-items:center;gap:10px">
         <span style="font-weight:500;color:var(--navy);flex:1;white-space:normal;line-height:1.35"><b>Riesgo específico:</b> ${escHtml(r.evento||'—')}</span>
-        ${pill(rr)}
+        ${pill(rr)} ${expertMark(r)}
       </span>
     </summary>
     <div style="padding:0 11px 10px">
@@ -2099,17 +2327,22 @@ function renderResultRiskDetails(r) {
         <span style="font-size:10px;color:var(--muted);display:inline-flex;align-items:center">Inherente ${iLabel(is)} (${is??'—'})</span>
         <span style="font-size:10px;color:var(--muted);display:inline-flex;align-items:center">Control ${ecLabel(ec)} (${ec===null?'—':ec.toFixed(1)})</span>
       </div>
+      ${adjusted?`<div class="alert alert-w" style="margin:0 0 9px;padding:8px 10px;font-size:11px">
+        <span>⚡</span><div><b>Ajuste experto:</b> ${pill(calcResidual(r))} → ${pill(rr)}
+        <div style="margin-top:4px;color:var(--muted)"><b>Justificación:</b> ${escHtml(r.justificacion||'Sin justificación')}</div></div>
+      </div>`:''}
       ${renderResultControlRows(r)}
     </div>
   </details>`;
 }
 function renderResultSubprocessDetails(sp, subEvents) {
   const agg=aggregateWorstBySubprocess(subEvents);
+  const hasAdj=anyExpertAdjusted(subEvents);
   return `<details style="border:1px solid var(--border);border-radius:8px;margin-top:8px;background:#fff;overflow:hidden">
       <summary style="cursor:pointer;padding:10px 12px;background:var(--bg)">
         <span style="display:flex;align-items:center;gap:10px">
         <span style="font-weight:600;color:var(--navy);flex:1;white-space:normal"><b>Subproceso:</b> ${escHtml(sp)}</span>
-        ${resultRatingPill(agg.rating)}
+        ${resultRatingPill(agg.rating)} ${hasAdj?'<span class="adj" title="Contiene ajuste experto">⚡</span>':''}
         <span style="font-size:10px;color:var(--muted)">${specificRiskCount(subEvents.length)}</span>
         </span>
       </summary>
@@ -2135,6 +2368,7 @@ function renderResultProcessDrilldown(matrix) {
   const detailRating=selectedResultProcessN2
     ? resultThresholdRating(pAgg.rating,n2Rating)
     : pAgg.rating;
+  const hasAdj=anyExpertAdjusted(events);
   const subRows=renderResultSubprocessGroup(events);
   return `<div id="resultProcessDetail" style="margin-top:14px;border:1px solid var(--border);border-radius:10px;background:#fff;box-shadow:var(--sh);overflow:hidden">
     <details open>
@@ -2142,6 +2376,7 @@ function renderResultProcessDrilldown(matrix) {
         <span style="display:flex;align-items:center;gap:10px">
         <span style="font-family:'DM Serif Display',serif;font-size:15px;flex:1;white-space:normal"><b>Proceso:</b> ${escHtml(proc)}${selectedResultProcessN2?` / <b>N2:</b> ${escHtml(selectedResultProcessN2)}`:''}</span>
         <span class="pill ${detailRating==='rojo'?'pr':detailRating==='ambar'?'pa':detailRating==='verde'?'pv':'pg'}" style="font-size:10px">${ratingLabel(detailRating)} final</span>
+        ${hasAdj?'<span class="adj" title="Contiene ajuste experto" style="color:#FFE08A">⚡</span>':''}
         <span style="font-size:11px;opacity:.8">${specificRiskCount(events.length)}</span>
         </span>
       </summary>
@@ -2166,23 +2401,26 @@ function renderResultN2Drilldown(matrix) {
   });
   const procRows=Object.entries(procMap).map(([proc,procEvents])=>{
     const agg=aggregateWorstBySubprocess(procEvents);
+    const hasAdj=anyExpertAdjusted(procEvents);
     return `<details style="border:1px solid var(--border);border-radius:8px;margin-top:8px;background:#fff;overflow:hidden">
       <summary style="cursor:pointer;padding:10px 12px;background:var(--bg)">
         <span style="display:flex;align-items:center;gap:10px">
           <span style="font-weight:600;color:var(--navy);flex:1;white-space:normal"><b>Proceso:</b> ${escHtml(proc)}</span>
-          ${resultRatingPill(agg.rating,' proceso')}
+          ${resultRatingPill(agg.rating,' proceso')} ${hasAdj?'<span class="adj" title="Contiene ajuste experto">⚡</span>':''}
           <span style="font-size:10px;color:var(--muted)">${specificRiskCount(procEvents.length)}</span>
         </span>
       </summary>
       <div style="padding:10px 12px">${renderResultSubprocessGroup(procEvents)}</div>
     </details>`;
   }).join('');
+  const hasAdj=anyExpertAdjusted(events);
   return `<div id="resultProcessDetail" style="margin-top:14px;border:1px solid var(--border);border-radius:10px;background:#fff;box-shadow:var(--sh);overflow:hidden">
     <details open>
       <summary style="cursor:pointer;padding:12px 16px;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff">
         <span style="display:flex;align-items:center;gap:10px">
           <span style="font-family:'DM Serif Display',serif;font-size:15px;flex:1;white-space:normal">N2: ${escHtml(n2)}</span>
           <span class="pill ${n2Agg.rating==='rojo'?'pr':n2Agg.rating==='ambar'?'pa':n2Agg.rating==='verde'?'pv':'pg'}" style="font-size:10px">${ratingLabel(n2Agg.rating)} N2</span>
+          ${hasAdj?'<span class="adj" title="Contiene ajuste experto" style="color:#FFE08A">⚡</span>':''}
           <span style="font-size:11px;opacity:.8">${specificRiskCount(events.length)}</span>
         </span>
       </summary>
@@ -2289,6 +2527,9 @@ function renderResultados(){
 
   // ── Mapa residual grande: filas = procesos, columnas = N2 individuales ──
   const matrix=buildProcessN2MatrixData();
+  renderResultsStats(matrix);
+  const expertPanel=document.getElementById('expertAdjustmentsPanel');
+  if(expertPanel&&expertPanel.style.display!=='none') renderExpertAdjustmentsPanel();
   if(selectedResultProcess&&!matrix.processAgg[selectedResultProcess]) selectedResultProcess=null;
   if(selectedResultN2&&!matrix.n2Agg[selectedResultN2]) selectedResultN2=null;
   if(selectedResultProcessN2&&!matrix.n2Agg[selectedResultProcessN2]) selectedResultProcessN2=null;
@@ -2333,10 +2574,11 @@ function renderResultados(){
       const c=colorFor(finalRating);
       const sp=agg.worstSubprocess?agg.worstSubprocess.subproceso:'—';
       const selectedCell=proc===selectedResultProcess&&n2===selectedResultProcessN2;
+      const hasAdj=anyExpertAdjusted(agg.events);
       h+=`<td class="result-matrix-cell" data-proc="${escHtml(proc)}" data-n2="${escHtml(n2)}"
         style="padding:7px 9px;border:${selectedCell?'2px solid var(--blue2)':'1px solid var(--border)'};text-align:center;background:${c.bg};vertical-align:middle;cursor:pointer"
         title="Proceso ${ratingLabel(pAgg.rating)} × N2 ${ratingLabel(n2Agg.rating)}. Peor subproceso de la intersección: ${String(sp).replace(/"/g,'&quot;')}">
-        <span style="font-weight:700;color:${c.col};font-size:11px;display:block">${ratingLabel(finalRating)}</span>
+        <span style="font-weight:700;color:${c.col};font-size:11px;display:inline-flex;align-items:center;gap:4px">${ratingLabel(finalRating)}${hasAdj?'<span class="adj" title="Contiene ajuste experto">⚡</span>':''}</span>
       </td>`;
     });
     h+=`</tr>`;
@@ -2358,8 +2600,11 @@ function renderResultados(){
 
 function updRes(i,v){
   risks[i].residualFinal=v;
-  // Enable/disable justification input
   renderResidual();
+  renderResultados();
+}
+function updJustificacion(i,v){
+  risks[i].justificacion=v;
   renderResultados();
 }
 
@@ -2388,6 +2633,37 @@ function indicatorStatus(min,max,result) {
   return ok
     ? '<span class="pill pv" title="Dentro del umbral" style="font-size:10px">✓ OK</span>'
     : '<span class="pill pr" title="Fuera del umbral" style="font-size:10px">⚠ Atención</span>';
+}
+function uniqueIndicatorItems(items) {
+  const map=new Map();
+  items.forEach(it=>{
+    const key=`${it.proceso||'Sin proceso'}||${it.indicador||'Sin indicador'}`;
+    if(!map.has(key)) map.set(key,it);
+  });
+  return [...map.values()];
+}
+function renderIndicatorStats(kriItems,kciItems) {
+  const el=document.getElementById('statsIndicadores');
+  if(!el) return;
+  const all=[...uniqueIndicatorItems(kriItems).map(it=>({...it,kind:'kri'})),...uniqueIndicatorItems(kciItems).map(it=>({...it,kind:'kci'}))];
+  const states=all.map(it=>{
+    const v=fakeIndicatorValues(it.proceso,it.indicador,it.kind);
+    return {ok:v.result>=v.min&&v.result<=v.max};
+  });
+  const ok=states.filter(s=>s.ok).length;
+  const alert=states.length-ok;
+  const procCount=new Set(all.map(it=>it.proceso||'Sin proceso')).size;
+  const cards=[
+    {label:'Procesos con indicadores',val:procCount,bg:'#fff',col:'var(--navy)',sub:'agrupación de lectura'},
+    {label:'KRI',val:uniqueIndicatorItems(kriItems).length,bg:'var(--bg)',col:'var(--blue2)',sub:'indicadores de riesgo'},
+    {label:'KCI',val:uniqueIndicatorItems(kciItems).length,bg:'var(--bg)',col:'var(--blue2)',sub:'indicadores de control'},
+    {label:'OK / Atención',val:`${ok}/${alert}`,bg:alert?'#FFF9C4':'var(--gbg)',col:alert?'#7A5100':'var(--green)',sub:'con datos inventados'}
+  ];
+  el.innerHTML=cards.map(c=>`<div class="stat" style="flex:1;min-width:160px;background:${c.bg}">
+    <div class="lbl" style="color:${c.col}">${c.label}</div>
+    <div class="val" style="color:${c.col}">${c.val}</div>
+    <div class="sub">${c.sub}</div>
+  </div>`).join('');
 }
 function renderIndicatorGroups(items, kind) {
   if(!items.length) {
@@ -2440,6 +2716,7 @@ function renderIndicadores() {
     });
   });
 
+  renderIndicatorStats(kriItems,kciItems);
   document.getElementById('indKriPanel').innerHTML=renderIndicatorGroups(kriItems,'kri');
   document.getElementById('indKciPanel').innerHTML=renderIndicatorGroups(kciItems,'kci');
 }
@@ -2679,6 +2956,204 @@ function exportExcel(){
   };
   if(!window.XLSX){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=doExport;document.head.appendChild(s);}
   else doExport();
+}
+
+function reportTag(r, text) {
+  const cls={verde:'green',ambar:'amber',rojo:'red'}[r]||'gray';
+  return `<span class="tag ${cls}">${escHtml(text||ratingLabel(r))}</span>`;
+}
+function reportCellRating(r) {
+  const cls={verde:'cell-green',ambar:'cell-amber',rojo:'cell-red'}[r]||'cell-gray';
+  return `<td class="${cls}">${escHtml(ratingLabel(r))}</td>`;
+}
+function reportRows(rows) {
+  return rows.length ? rows.join('') : `<tr><td colspan="10" class="muted">Sin datos disponibles</td></tr>`;
+}
+function buildReportHtml() {
+  const matrix=buildProcessN2MatrixData();
+  const total=risks.length;
+  const rojos=risks.filter(r=>getRR(r)==='rojo').length;
+  const ambares=risks.filter(r=>getRR(r)==='ambar').length;
+  const verdes=risks.filter(r=>getRR(r)==='verde').length;
+  const adjusted=risks.filter(isExpertAdjusted);
+  const procCount=matrix.procesos.length;
+  const n2Count=matrix.n2s.length;
+  const controlCount=risks.reduce((a,r)=>a+(r.controls||[]).length,0);
+  const today=new Date().toLocaleDateString('es-ES',{year:'numeric',month:'long',day:'numeric'});
+  const source=originalFileName||'Archivo importado';
+
+  const riskRows=risks.map(r=>`<tr>
+    <td>${escHtml(r.proceso||'Sin proceso')}</td>
+    <td>${escHtml(r.subproceso||'Sin subproceso')}</td>
+    <td>${escHtml(r.evento||'')}</td>
+    <td>${(n2ListForRisk(r)||[]).map(n2=>`<span class="tag blue">${escHtml(n2)}</span>`).join(' ')||'-'}</td>
+    <td>${reportTag(iRating(iScore(r)), iLabel(iScore(r)))}</td>
+    <td>${reportTag(getRR(r))} ${isExpertAdjusted(r)?'<span class="bolt">⚡</span>':''}</td>
+    <td>${escHtml(isExpertAdjusted(r)?(r.justificacion||'Sin justificación'):'-')}</td>
+  </tr>`);
+
+  const matrixHeader=matrix.n2s.map(n2=>`<th>${escHtml(n2)}</th>`).join('');
+  const matrixRows=matrix.procesos.map(proc=>{
+    const pAgg=matrix.processAgg[proc];
+    const cells=matrix.n2s.map(n2=>{
+      const agg=matrix.cellAgg[`${proc}||${n2}`];
+      if(!agg) return '<td class="empty-cell">-</td>';
+      const finalRating=resultThresholdRating(pAgg.rating,matrix.n2Agg[n2]?.rating);
+      const hasAdj=anyExpertAdjusted(agg.events);
+      return `<td class="cell-${finalRating||'gray'}"><b>${ratingLabel(finalRating)}</b>${hasAdj?'<span class="bolt">⚡</span>':''}</td>`;
+    }).join('');
+    return `<tr><th>${escHtml(proc)}</th>${cells}</tr>`;
+  }).join('');
+
+  const processRows=matrix.procesos.map(proc=>{
+    const events=risks.filter(r=>(r.proceso||'Sin proceso')===proc);
+    const agg=matrix.processAgg[proc];
+    const subCount=new Set(events.map(r=>r.subproceso||'Sin subproceso')).size;
+    return `<tr>
+      <td>${escHtml(proc)}</td>
+      <td>${subCount}</td>
+      <td>${events.length}</td>
+      <td>${reportTag(agg.rating)} ${anyExpertAdjusted(events)?'<span class="bolt">⚡</span>':''}</td>
+      <td>${escHtml(agg.worstSubprocess?.subproceso||'-')}</td>
+    </tr>`;
+  });
+
+  const n2Rows=matrix.n2s.map(n2=>{
+    const events=risks.filter(r=>n2ListForRisk(r).includes(n2));
+    const agg=matrix.n2Agg[n2];
+    return `<tr>
+      <td>${escHtml(n2)}</td>
+      <td>${events.length}</td>
+      <td>${reportTag(agg.rating)} ${anyExpertAdjusted(events)?'<span class="bolt">⚡</span>':''}</td>
+      <td>${escHtml(agg.worstSubprocess?.worstEvent?.evento||agg.worstSubprocess?.subproceso||'-')}</td>
+    </tr>`;
+  });
+
+  const adjustmentRows=adjusted.map(r=>`<tr>
+    <td>${escHtml(r.proceso||'')}</td>
+    <td>${escHtml(r.subproceso||'')}</td>
+    <td>${escHtml(r.evento||'')}</td>
+    <td>${reportTag(calcResidual(r))}</td>
+    <td>${reportTag(getRR(r))}</td>
+    <td>${escHtml(r.justificacion||'Sin justificación')}</td>
+  </tr>`);
+
+  const kriItems=[], kciItems=[];
+  risks.forEach(r=>{
+    if(r.kri) kriItems.push({proceso:r.proceso, indicador:r.kri, kind:'kri'});
+    (r.controls||[]).forEach(c=>{ if(c.kciNombre) kciItems.push({proceso:r.proceso, indicador:c.kciNombre, kind:'kci'}); });
+  });
+  const indicatorRows=[...uniqueIndicatorItems(kriItems),...uniqueIndicatorItems(kciItems)].map(it=>{
+    const kind=it.kind||'kri';
+    const v=fakeIndicatorValues(it.proceso,it.indicador,kind);
+    const ok=v.result>=v.min&&v.result<=v.max;
+    return `<tr>
+      <td>${escHtml(it.proceso||'Sin proceso')}</td>
+      <td>${kind.toUpperCase()}</td>
+      <td>${escHtml(it.indicador||'')}</td>
+      <td>${v.min}</td><td>${v.max}</td><td>${v.result}</td>
+      <td>${ok?reportTag('verde','OK'):reportTag('rojo','Atención')}</td>
+    </tr>`;
+  });
+
+  const thresholdRows=(thresholds.tramos||[]).map(tr=>`<tr>
+    <td>${tr.nivel}</td><td>${escHtml(tr.label)}</td>
+    <td>${fmt(tr.min)}${tr.max!==null?' - '+fmt(tr.max):' +'}</td>
+  </tr>`);
+
+  const aggRows=['verde','ambar','rojo'].map(proc=>{
+    const cells=['verde','ambar','rojo'].map(n2=>reportCellRating(resultThresholdRating(proc,n2))).join('');
+    return `<tr><th>${ratingLabel(proc)}</th>${cells}</tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe RiskEval</title>
+<style>
+body{font-family:Arial,sans-serif;color:#0F1F3D;margin:32px;background:#fff;font-size:12px;line-height:1.45}
+h1{font-family:Georgia,serif;font-size:28px;margin:0 0 4px} h2{font-size:18px;margin:26px 0 10px;border-bottom:2px solid #D0DCEE;padding-bottom:6px}
+h3{font-size:14px;margin:18px 0 8px}.muted{color:#5A6B8A}.cover{border-bottom:4px solid #0F1F3D;padding-bottom:20px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.card{border:1px solid #D0DCEE;border-radius:8px;padding:12px;background:#F4F6FB}
+.lbl{font-size:10px;color:#5A6B8A;text-transform:uppercase;letter-spacing:.4px}.val{font-family:Georgia,serif;font-size:24px;font-weight:bold;margin-top:3px}
+table{width:100%;border-collapse:collapse;margin:8px 0 18px}th{background:#0F1F3D;color:#fff;text-align:left;font-size:10px;text-transform:uppercase;padding:7px;border:1px solid #22375f}
+td{padding:7px;border:1px solid #D0DCEE;vertical-align:top}tr:nth-child(even) td{background:#F8FAFE}
+.tag{display:inline-block;border-radius:12px;padding:2px 8px;font-size:10px;font-weight:bold;margin:1px}.green{background:#D4F5E9;color:#0E7A5A}.amber{background:#FFF3CD;color:#C47A00}.red{background:#FDECEA;color:#C0392B}.blue{background:#E8EFFC;color:#1B4FBF}.gray{background:#eee;color:#666}
+.cell-green{background:#D4F5E9;color:#0E7A5A;text-align:center}.cell-amber{background:#FFF3CD;color:#C47A00;text-align:center}.cell-red{background:#FDECEA;color:#C0392B;text-align:center}.cell-gray,.empty-cell{background:#f5f5f5;color:#888;text-align:center}
+.bolt{color:#C47A00;font-weight:bold;margin-left:4px}.note{border-left:4px solid #C47A00;background:#FFF3CD;padding:10px;margin:12px 0;color:#7A5100}
+@media print{body{margin:16mm}.grid{break-inside:avoid}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="cover">
+  <h1>Informe de evaluación de riesgos</h1>
+  <div class="muted">Generado el ${escHtml(today)} · Fuente: ${escHtml(source)}</div>
+</div>
+
+<h2>1. Resumen ejecutivo</h2>
+<div class="grid">
+  <div class="card"><div class="lbl">Riesgos específicos</div><div class="val">${total}</div></div>
+  <div class="card"><div class="lbl">Procesos</div><div class="val">${procCount}</div></div>
+  <div class="card"><div class="lbl">N2</div><div class="val">${n2Count}</div></div>
+  <div class="card"><div class="lbl">Controles</div><div class="val">${controlCount}</div></div>
+</div>
+<div class="grid">
+  <div class="card"><div class="lbl">Residual rojo</div><div class="val">${rojos}</div></div>
+  <div class="card"><div class="lbl">Residual ámbar</div><div class="val">${ambares}</div></div>
+  <div class="card"><div class="lbl">Residual verde</div><div class="val">${verdes}</div></div>
+  <div class="card"><div class="lbl">Ajustes expertos</div><div class="val">${adjusted.length}</div></div>
+</div>
+
+<h2>2. Alcance y metodología</h2>
+<p>La evaluación calcula el riesgo inherente a partir de frecuencia e impacto, evalúa controles por diseño y ejecución, obtiene riesgo residual y agrega resultados por jerarquía: el peor riesgo específico marca el subproceso, el peor subproceso marca el proceso y el peor evento asociado marca cada N2. La matriz final cruza la nota de proceso con la nota N2.</p>
+
+<h2>3. Resultados globales por proceso</h2>
+<table><thead><tr><th>Proceso</th><th>Subprocesos</th><th>Riesgos específicos</th><th>Nota proceso</th><th>Peor subproceso</th></tr></thead><tbody>${reportRows(processRows)}</tbody></table>
+
+<h2>4. Resultados por N2</h2>
+<table><thead><tr><th>N2</th><th>Riesgos específicos</th><th>Nota N2</th><th>Peor referencia</th></tr></thead><tbody>${reportRows(n2Rows)}</tbody></table>
+
+<h2>5. Matriz proceso vs N2</h2>
+<table><thead><tr><th>Proceso / N2</th>${matrixHeader}</tr></thead><tbody>${matrixRows}</tbody></table>
+<p class="muted">El símbolo ⚡ indica que el resultado contiene al menos un riesgo específico con ajuste experto.</p>
+
+<h2>6. Detalle por riesgo específico</h2>
+<table><thead><tr><th>Proceso</th><th>Subproceso</th><th>Riesgo específico</th><th>N2</th><th>R. inherente</th><th>Residual final</th><th>Justificación</th></tr></thead><tbody>${reportRows(riskRows)}</tbody></table>
+
+<h2>7. Ajustes expertos</h2>
+<table><thead><tr><th>Proceso</th><th>Subproceso</th><th>Riesgo específico</th><th>Antes</th><th>Después</th><th>Justificación</th></tr></thead><tbody>${reportRows(adjustmentRows)}</tbody></table>
+
+<h2>8. Indicadores KRI/KCI</h2>
+<div class="note">Los umbrales mínimo/máximo y resultado de indicadores son provisionales/inventados hasta que existan columnas específicas en el Excel.</div>
+<table><thead><tr><th>Proceso</th><th>Tipo</th><th>Indicador</th><th>Umbral mínimo</th><th>Umbral máximo</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>${reportRows(indicatorRows)}</tbody></table>
+
+<h2>9. Umbrales utilizados</h2>
+<h3>Impacto financiero</h3>
+<table><thead><tr><th>Nivel</th><th>Etiqueta</th><th>Tramo</th></tr></thead><tbody>${reportRows(thresholdRows)}</tbody></table>
+<h3>Matriz de agregación proceso/N2</h3>
+<table><thead><tr><th>Proceso \\ N2</th><th>Verde</th><th>Ámbar</th><th>Rojo</th></tr></thead><tbody>${aggRows}</tbody></table>
+
+<h2>10. Anexos</h2>
+<p class="muted">Este informe se genera a partir de los datos cargados en RiskEval y refleja los cálculos y ajustes vigentes en el momento de exportación.</p>
+</body>
+</html>`;
+}
+function exportReport() {
+  document.getElementById('expMenu').style.display='none';
+  if(!risks.length){toast('⚠️ Sin datos para exportar informe.');return;}
+  const html=buildReportHtml();
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const base=(originalFileName||'RiskEval.xlsx').replace(/\.(xlsx|xlsm|xls|json)$/i,'');
+  a.href=url;
+  a.download=base+'_Informe_RiskEval_'+new Date().toISOString().slice(0,10)+'.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('✅ Informe exportado');
 }
 
 // Init
